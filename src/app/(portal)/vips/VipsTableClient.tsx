@@ -1,0 +1,634 @@
+"use client";
+
+import { useState, useTransition, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { 
+  Search, 
+  Calendar, 
+  Phone, 
+  Check, 
+  MessageSquare, 
+  Clock, 
+  ChevronLeft, 
+  ChevronRight,
+  Send,
+  Copy,
+  CheckCheck,
+  CheckCircle2,
+  UserCheck
+} from "lucide-react";
+import { toggleDiscipleshipStatusAction, markBatchAsTextedAction } from "@/app/actions/firstTimerAction";
+import EditFirstTimerModal from "@/app/components/EditFirstTimerModal";
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+const AGE_GROUPS = [
+  "ALL",
+  "Youth",
+  "Young Adult",
+  "River Men",
+  "River Women",
+  "Seasoned"
+];
+
+// Connect Team Welcome SMS Template
+const WELCOME_SMS_MESSAGE = `Welcome to River of God Church!
+
+We're so glad you joined us for our Sunday Worship service yesterday! 
+
+Kamusta ka? We hope all is well with you!
+
+We would love to pray for you. If you have any prayer requests, feel free to message us. Also, since this is your first time with us, we'd love to get to know you better and connect with you!
+
+Be sure to check out our social media pages to stay updated. We look forward to hearing from you and hope to see you again next Sunday 
+
+— River of God, Connect Team
+
+P.S. Would you be interested in joining a Life Group to grow further in community?`;
+
+interface VipsClientProps {
+  initialData: any[];
+  totalInMonth: number;
+  selectedYear: number;
+  selectedMonth: number;
+  teamMembers: any[];
+}
+
+export default function VipsTableClient({
+  initialData,
+  totalInMonth,
+  selectedYear,
+  selectedMonth,
+  teamMembers,
+}: VipsClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+  const [copied, setCopied] = useState(false);
+
+  // Optimistic synchronized records state
+  const [data, setData] = useState(initialData);
+
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
+
+  const safeMonth = (selectedMonth >= 1 && selectedMonth <= 12) ? selectedMonth : (new Date().getMonth() + 1);
+  const safeYear = selectedYear || new Date().getFullYear();
+
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [selectedAge, setSelectedAge] = useState(searchParams.get("ageGroup") || "ALL");
+  const [selectedService, setSelectedService] = useState(searchParams.get("service") || "ALL");
+  const [selectedStatus, setSelectedStatus] = useState(searchParams.get("status") || "ALL");
+
+  // Untexted recipients filter for batch SMS
+  const untextedVips = data.filter((v) => !v.textedAlready && v.contact);
+  const untextedPhoneNumbers = untextedVips
+    .map((v) => v.contact?.replace(/[^0-9+]/g, ""))
+    .filter((num): num is string => !!num && num.length >= 7);
+
+  const updateFilters = (
+    m: number,
+    y: number,
+    age: string,
+    srv: string,
+    st: string,
+    term: string
+  ) => {
+    const params = new URLSearchParams();
+    params.set("month", String(m));
+    params.set("year", String(y));
+    if (age !== "ALL") params.set("ageGroup", age);
+    if (srv !== "ALL") params.set("service", srv);
+    if (st !== "ALL") params.set("status", st);
+    if (term.trim()) params.set("search", term.trim());
+
+    startTransition(() => {
+      router.push(`/vips?${params.toString()}`);
+    });
+  };
+
+  const handlePrevMonth = () => {
+    let m = safeMonth - 1;
+    let y = safeYear;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    updateFilters(m, y, selectedAge, selectedService, selectedStatus, search);
+  };
+
+  const handleNextMonth = () => {
+    let m = safeMonth + 1;
+    let y = safeYear;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    updateFilters(m, y, selectedAge, selectedService, selectedStatus, search);
+  };
+
+  const handleUpdateItem = (updatedItem: any) => {
+    setData((prev) =>
+      prev.map((item) => (item._id === updatedItem._id ? updatedItem : item))
+    );
+  };
+
+  const handleToggleStatus = (id: string, field: "textedAlready" | "startedOne2One", currentVal: boolean) => {
+    setData((prev) =>
+      prev.map((item) => (item._id === id ? { ...item, [field]: !currentVal } : item))
+    );
+
+    startTransition(async () => {
+      await toggleDiscipleshipStatusAction(id, field, !currentVal);
+      router.refresh();
+    });
+  };
+
+  const handleCopyNumbers = () => {
+    if (untextedPhoneNumbers.length === 0) return;
+    navigator.clipboard.writeText(untextedPhoneNumbers.join(", "));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleMarkBatchTexted = () => {
+    const ids = untextedVips.map((v) => v._id);
+    if (ids.length === 0) return;
+
+    setData((prev) =>
+      prev.map((item) => (ids.includes(item._id) ? { ...item, textedAlready: true } : item))
+    );
+
+    startTransition(async () => {
+      await markBatchAsTextedAction(ids);
+      router.refresh();
+    });
+  };
+
+  // Pre-encoded SMS links
+  const encodedWelcomeBody = encodeURIComponent(WELCOME_SMS_MESSAGE);
+  const isIos = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const smsDelimiter = isIos ? "&" : "?";
+  const bulkSmsHref = `sms:${untextedPhoneNumbers.join(",")}?${smsDelimiter}body=${encodedWelcomeBody}`;
+
+  return (
+    <div className="space-y-4">
+      
+      {/* 1. Month Navigator & Search */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="md:col-span-2 bg-white rounded-[24px] border border-slate-200/80 p-3 sm:p-3.5 flex items-center justify-between shadow-sm">
+          <button
+            onClick={handlePrevMonth}
+            className="p-2 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors"
+            title="Previous Month"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-orange-50 text-[#FF6B00]">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <span className="text-sm sm:text-base font-black text-[#111827]">
+              {MONTHS[safeMonth - 1]} {safeYear}
+            </span>
+            <span className="text-[10px] sm:text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full ml-1">
+              {totalInMonth} Total
+            </span>
+          </div>
+
+          <button
+            onClick={handleNextMonth}
+            className="p-2 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors"
+            title="Next Month"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            updateFilters(safeMonth, safeYear, selectedAge, selectedService, selectedStatus, search);
+          }}
+          className="relative"
+        >
+          <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search VIP, phone, leader, updater..."
+            className="w-full pl-11 pr-4 py-3 sm:py-3.5 rounded-[24px] bg-white border border-slate-200/80 text-xs sm:text-sm font-medium text-[#111827] placeholder-slate-400 focus:outline-none focus:border-[#FF6B00] shadow-sm"
+          />
+        </form>
+      </div>
+
+      {/* 2. Age Group Tabs */}
+      <div className="space-y-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
+          Follow-Up Age Group
+        </span>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {AGE_GROUPS.map((age) => (
+            <button
+              key={age}
+              onClick={() => {
+                setSelectedAge(age);
+                updateFilters(safeMonth, safeYear, age, selectedService, selectedStatus, search);
+              }}
+              className={`px-4 py-2 rounded-2xl text-xs font-black transition-all shrink-0 ${
+                selectedAge === age
+                  ? "bg-[#FF6B00] text-white shadow-md shadow-orange-500/20"
+                  : "bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50"
+              }`}
+            >
+              {age === "ALL" ? "All Age Groups" : age}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. Follow-Up Dispatch Box */}
+      <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent border border-orange-200/80 rounded-[28px] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+        <div>
+          <div className="text-xs font-black text-[#111827] flex items-center gap-1.5">
+            <Send className="w-3.5 h-3.5 text-[#FF6B00]" />
+            Follow-Up SMS Dispatch • {selectedAge === "ALL" ? "All Groups" : selectedAge}
+          </div>
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+            {untextedPhoneNumbers.length > 0 ? (
+              <>
+                <span className="font-bold text-[#FF6B00]">{untextedPhoneNumbers.length} pending VIP(s)</span> ready for welcome SMS.
+              </>
+            ) : (
+              "All VIPs in this selection have been texted! 🎉"
+            )}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleCopyNumbers}
+            disabled={untextedPhoneNumbers.length === 0}
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all disabled:opacity-40"
+          >
+            {copied ? (
+              <>
+                <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-slate-500" /> Copy ({untextedPhoneNumbers.length})
+              </>
+            )}
+          </button>
+
+          <a
+            href={untextedPhoneNumbers.length > 0 ? bulkSmsHref : "#"}
+            className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black transition-all shadow-md shadow-orange-500/25 ${
+              untextedPhoneNumbers.length === 0 ? "pointer-events-none opacity-40" : ""
+            }`}
+          >
+            <Send className="w-3.5 h-3.5" /> Broadcast SMS
+          </a>
+
+          {untextedPhoneNumbers.length > 0 && (
+            <button
+              onClick={handleMarkBatchTexted}
+              disabled={isPending}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-sm"
+              title="Mark all untexted VIPs as texted"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" /> Mark {untextedPhoneNumbers.length} as Texted
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 4. Dropdowns */}
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={selectedService}
+          onChange={(e) => {
+            setSelectedService(e.target.value);
+            updateFilters(safeMonth, safeYear, selectedAge, e.target.value, selectedStatus, search);
+          }}
+          className="px-3 py-1.5 rounded-xl bg-white border border-slate-200/80 text-xs font-bold text-slate-700 focus:outline-none"
+        >
+          <option value="ALL">All Services</option>
+          <option value="10AM">10AM Service</option>
+          <option value="1PM">1PM Service</option>
+          <option value="4PM">4PM Service</option>
+        </select>
+
+        <select
+          value={selectedStatus}
+          onChange={(e) => {
+            setSelectedStatus(e.target.value);
+            updateFilters(safeMonth, safeYear, selectedAge, selectedService, e.target.value, search);
+          }}
+          className="px-3 py-1.5 rounded-xl bg-white border border-slate-200/80 text-xs font-bold text-slate-700 focus:outline-none"
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="UNTEXTED">Pending Welcome Text</option>
+          <option value="TEXTED">Texted Already</option>
+          <option value="DISCIPLESHIP_YES">1-to-1: Yes</option>
+          <option value="DISCIPLESHIP_NO">1-to-1: No</option>
+        </select>
+      </div>
+
+      {/* 5. Mobile Cards View */}
+      <div className="md:hidden space-y-3">
+        {data.length === 0 ? (
+          <div className="bg-white rounded-[24px] border border-slate-200/80 p-8 text-center text-slate-400 text-xs font-medium">
+            No VIP records found for this month.
+          </div>
+        ) : (
+          data.map((item: any) => {
+            const singleSmsHref = item.contact
+              ? `sms:${item.contact.replace(/[^0-9+]/g, "")}?${smsDelimiter}body=${encodedWelcomeBody}`
+              : "#";
+
+            return (
+              <div
+                key={item._id}
+                className="bg-white rounded-[24px] border border-slate-200/80 p-4 shadow-sm space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={`h-9 w-9 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 ${
+                        item.gender === 1 ? "bg-blue-500" : "bg-rose-400"
+                      }`}
+                    >
+                      {item.gender === 1 ? "M" : "F"}
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-[#111827] leading-tight">
+                        {item.fullName}
+                      </h3>
+                      <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" />
+                        {new Date(item.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <EditFirstTimerModal item={item} teamMembers={teamMembers} onUpdate={handleUpdateItem} />
+                </div>
+
+                {/* Badges */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-orange-50 text-[#FF6B00] border border-orange-200/60">
+                    {item.ageGroup}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600">
+                    {item.serviceAttended}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-500">
+                    {item.iam}
+                  </span>
+                </div>
+
+                {/* Approached, 1-on-1 & Followed-Up By Info */}
+                <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Approached by</span>
+                    <span className="font-extrabold text-[#111827]">{item.approachedBy}</span>
+                  </div>
+                  {item.connectedWith && (
+                    <div className="flex items-center justify-between text-[11px] text-emerald-700 font-semibold">
+                      <span className="text-[10px] uppercase font-bold text-emerald-600">1-on-1 Connected</span>
+                      <span>{item.connectedWith}</span>
+                    </div>
+                  )}
+                  {item.followedUpBy && (
+                    <div className="flex items-center justify-between text-[11px] text-indigo-700 pt-1 border-t border-slate-200/60 font-semibold">
+                      <span className="text-[10px] uppercase font-bold text-indigo-500 flex items-center gap-1">
+                        <UserCheck className="w-3 h-3" /> Updated By
+                      </span>
+                      <span className="bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] text-indigo-700 border border-indigo-200/60">
+                        {item.followedUpBy}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  {item.contact ? (
+                    <a
+                      href={singleSmsHref}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-100 hover:bg-orange-50 hover:text-[#FF6B00] text-slate-700 font-bold text-xs font-mono transition-colors"
+                      title="Send Welcome SMS"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      {item.contact}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-300 italic px-2">No phone</span>
+                  )}
+
+                  {item.messenger && (
+                    <a
+                      href={item.messenger.startsWith("http") ? item.messenger : `https://m.me/${item.messenger}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors shrink-0"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                    </a>
+                  )}
+
+                  <button
+                    onClick={() => handleToggleStatus(item._id, "textedAlready", !!item.textedAlready)}
+                    disabled={isPending}
+                    className={`h-8 w-8 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
+                      item.textedAlready
+                        ? "bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/30"
+                        : "bg-slate-50 border-slate-300 text-transparent"
+                    }`}
+                    title="Mark Texted"
+                  >
+                    <Check className="w-4 h-4 stroke-[3]" />
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      handleToggleStatus(
+                        item._id,
+                        "startedOne2One",
+                        Boolean(item.startedOne2One ?? item.startedOne2one)
+                      )
+                    }
+                    disabled={isPending}
+                    className={`px-3 py-2 rounded-xl text-xs font-extrabold border transition-all shrink-0 ${
+                      Boolean(item.startedOne2One ?? item.startedOne2one)
+                        ? "bg-emerald-50 text-emerald-600 border-emerald-300"
+                        : "bg-slate-100 text-slate-500 border-slate-200"
+                    }`}
+                  >
+                    1-to-1: {Boolean(item.startedOne2One ?? item.startedOne2one) ? "YES" : "NO"}
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* 6. Desktop Data Table */}
+      <div className="hidden md:block bg-white rounded-[32px] border border-slate-200/80 shadow-xl shadow-slate-200/40 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <th className="py-4 px-5">VIP Name</th>
+                <th className="py-4 px-4">Age Group</th>
+                <th className="py-4 px-4">Service</th>
+                <th className="py-4 px-5">Approached By</th>
+                <th className="py-4 px-5">Contact</th>
+                <th className="py-4 px-4 text-center">Texted</th>
+                <th className="py-4 px-4 text-center">1-to-1</th>
+                <th className="py-4 px-4 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm font-medium">
+              {data.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-16 text-center text-slate-400 text-xs font-medium">
+                    No VIP logs found for this month.
+                  </td>
+                </tr>
+              ) : (
+                data.map((item: any) => {
+                  const singleSmsHref = item.contact
+                    ? `sms:${item.contact.replace(/[^0-9+]/g, "")}?${smsDelimiter}body=${encodedWelcomeBody}`
+                    : "#";
+
+                  return (
+                    <tr key={item._id} className="hover:bg-orange-50/30 transition-colors">
+                      <td className="py-4 px-5">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`h-9 w-9 rounded-xl flex items-center justify-center font-black text-xs text-white shadow-sm ${
+                              item.gender === 1
+                                ? "bg-blue-500 shadow-blue-500/20"
+                                : "bg-rose-400 shadow-rose-400/20"
+                            }`}
+                          >
+                            {item.gender === 1 ? "M" : "F"}
+                          </div>
+                          <div>
+                            <div className="font-extrabold text-[#111827]">{item.fullName}</div>
+                            <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                              <Clock className="w-3 h-3" />
+                              {new Date(item.createdAt).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-4">
+                        <span className="px-2.5 py-1 rounded-xl bg-orange-50 text-[#FF6B00] border border-orange-200/60 font-extrabold text-xs">
+                          {item.ageGroup}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-4">
+                        <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-extrabold text-xs">
+                          {item.serviceAttended}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-5">
+                        <div className="text-xs font-bold text-slate-800">{item.approachedBy}</div>
+                        {item.connectedWith && (
+                          <div className="text-[11px] text-emerald-600 font-semibold">
+                            1-on-1: {item.connectedWith}
+                          </div>
+                        )}
+                        {item.followedUpBy && (
+                          <div className="text-[10px] text-indigo-600 font-bold mt-0.5 flex items-center gap-1">
+                            <span className="text-slate-400 font-medium">By:</span> {item.followedUpBy}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-5">
+                        {item.contact ? (
+                          <a
+                            href={singleSmsHref}
+                            className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700 hover:text-[#FF6B00]"
+                            title="Click to send welcome SMS"
+                          >
+                            <Phone className="w-3 h-3 text-emerald-600" />
+                            {item.contact}
+                          </a>
+                        ) : (
+                          <span className="text-[11px] text-slate-300 italic">No contact</span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-4 text-center">
+                        <button
+                          onClick={() => handleToggleStatus(item._id, "textedAlready", !!item.textedAlready)}
+                          disabled={isPending}
+                          className={`h-7 w-7 rounded-xl border flex items-center justify-center mx-auto transition-all ${
+                            item.textedAlready
+                              ? "bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/30"
+                              : "bg-slate-50 border-slate-300 text-transparent hover:border-emerald-500"
+                          }`}
+                          title={item.textedAlready ? "Marked as texted" : "Click to mark as texted"}
+                        >
+                          <Check className="w-4 h-4 stroke-[3]" />
+                        </button>
+                      </td>
+
+                      <td className="py-4 px-4 text-center">
+                        <button
+                          onClick={() =>
+                            handleToggleStatus(
+                              item._id,
+                              "startedOne2One",
+                              Boolean(item.startedOne2One ?? item.startedOne2one)
+                            )
+                          }
+                          disabled={isPending}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold border transition-all ${
+                            Boolean(item.startedOne2One ?? item.startedOne2one)
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-300 shadow-sm"
+                              : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
+                          }`}
+                        >
+                          {Boolean(item.startedOne2One ?? item.startedOne2one) ? "YES" : "NO"}
+                        </button>
+                      </td>
+
+                      <td className="py-4 px-4 text-center">
+                        <EditFirstTimerModal item={item} teamMembers={teamMembers} onUpdate={handleUpdateItem} />
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  );
+}

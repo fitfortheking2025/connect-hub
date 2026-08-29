@@ -195,7 +195,7 @@ export default function DashboardPage() {
             </div>
 
             <Link 
-              href="/intake"
+              href="/vips"
               className="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-[#FF6B00] hover:text-[#e05e00] px-3 py-2 rounded-xl hover:bg-orange-50 transition-all"
             >
               View All <ChevronRight className="w-4 h-4" />

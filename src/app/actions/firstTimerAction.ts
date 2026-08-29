@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import dbConnect from "@/lib/mongodb";
 import { FirstTimer } from "@/models";
+import { auth } from "@/lib/auth";
 
 // Helper to normalize Philippine mobile numbers to 09XXXXXXXXX when provided
 function formatPhilippineContact(rawContact: string): string {
@@ -80,21 +81,112 @@ export async function createFirstTimerAction(formData: FormData) {
 
 export async function toggleDiscipleshipStatusAction(
   id: string,
-  field: "textedAlready" | "oneToOneStarted",
+  field: "textedAlready" | "startedOne2One",
   value: boolean
 ) {
   try {
+    const session = await auth();
     await dbConnect();
+
     const updateData: Record<string, any> = { [field]: value };
-    if (field === "oneToOneStarted") {
-      updateData.oneToOneStatus = value ? "IN_PROGRESS" : "NOT_STARTED";
+    if (session?.user) {
+      updateData.followedUpBy = session.user.name || session.user.email;
+      if ((session.user as any).id) {
+        updateData.followedUpByUserId = (session.user as any).id;
+      }
     }
 
     await FirstTimer.findByIdAndUpdate(id, updateData);
     revalidatePath("/vips");
-    revalidatePath("/");
-    return { success: true };
+    revalidatePath("/", "layout");
+    return { success: true, followedUpBy: updateData.followedUpBy };
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+}
+
+export async function markBatchAsTextedAction(ids: string[]) {
+  try {
+    if (!ids || ids.length === 0) return { success: true };
+    const session = await auth();
+    await dbConnect();
+
+    const updateData: Record<string, any> = { textedAlready: true };
+    if (session?.user) {
+      updateData.followedUpBy = session.user.name || session.user.email;
+      if ((session.user as any).id) {
+        updateData.followedUpByUserId = (session.user as any).id;
+      }
+    }
+
+    await FirstTimer.updateMany({ _id: { $in: ids } }, { $set: updateData });
+    revalidatePath("/vips");
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to mark batch." };
+  }
+}
+
+export async function updateFirstTimerAction(data: {
+  id: string;
+  fullName: string;
+  contact?: string;
+  messenger?: string;
+  iam?: string;
+  ageGroup?: string;
+  serviceAttended?: string;
+  approachedBy?: string;
+  invitedBy?: string;
+  connectedWith?: string;
+  startedOne2One?: boolean;
+  textedAlready?: boolean;
+  updateReport?: string;
+}) {
+  try {
+    const session = await auth();
+    await dbConnect();
+
+    if (!data.id) {
+      return { success: false, error: "Record ID is missing." };
+    }
+
+    const updaterName = session?.user?.name || session?.user?.email || "Follow-Up Team";
+    const updaterId = (session?.user as any)?.id || null;
+
+    const updated = await FirstTimer.findByIdAndUpdate(
+      data.id,
+      {
+        fullName: data.fullName?.trim(),
+        contact: data.contact?.trim(),
+        messenger: data.messenger?.trim(),
+        iam: data.iam,
+        ageGroup: data.ageGroup,
+        serviceAttended: data.serviceAttended,
+        approachedBy: data.approachedBy?.trim(),
+        invitedBy: data.invitedBy?.trim(),
+        connectedWith: data.connectedWith?.trim() || "",
+        startedOne2One: Boolean(data.startedOne2One),
+        textedAlready: Boolean(data.textedAlready),
+        updateReport: data.updateReport?.trim() || "",
+        followedUpBy: updaterName,
+        followedUpByUserId: updaterId,
+      },
+      { returnDocument: "after" }
+    ).lean();
+
+    if (!updated) {
+      return { success: false, error: "Document not found in database." };
+    }
+
+    revalidatePath("/vips");
+    revalidatePath("/", "layout");
+
+    return {
+      success: true,
+      updated: JSON.parse(JSON.stringify(updated)),
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to update record." };
   }
 }
