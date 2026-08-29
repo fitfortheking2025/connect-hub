@@ -587,7 +587,7 @@ export default function VipsTableClient({
                         )}
                         {item.followedUpBy && (
                           <div className="text-[10px] text-indigo-600 font-bold mt-0.5 flex items-center gap-1">
-                            <span className="text-slate-400 font-medium">By:</span> {item.followedUpBy}
+                            <span className="text-slate-400 font-medium">Updated By:</span> {item.followedUpBy}
                           </div>
                         )}
                       </td>
