@@ -1,16 +1,13 @@
 import Link from "next/link";
-import Image from "next/image";
 import { auth } from "@/lib/auth";
-import { 
-  LayoutDashboard, 
-  UserPlus, 
-  Users, 
-  WalletCards, 
-  ShieldCheck, 
-  User 
-} from "lucide-react";
+import { redirect } from "next/navigation";
+import Image from "next/image";
+import { UserCircle2 } from "lucide-react";
 import LogoutButton from "@/app/components/LogoutButton";
 import ChangePasswordModal from "@/app/components/ChangePasswordModal";
+import MobileUserDrawer from "@/app/components/MobileUserDrawer";
+import BottomNavBar from "@/app/components/BottomNavbar";
+import SidebarNav from "@/app/components/SidebarNav";
 
 export default async function PortalLayout({
   children,
@@ -18,181 +15,103 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  const currentUser = {
-    fullName: session?.user?.name || "System Admin",
-    username: (session?.user as any)?.username || "admin_connect",
-    role: (session?.user as any)?.role || "ADMIN",
-  };
 
-  const isAdmin = currentUser.role === "ADMIN";
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const user = session.user as any;
+  const isAdmin = user?.role === "ADMIN";
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen relative overflow-x-hidden pb-24 md:pb-0 bg-[#F4F6FA]">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row">
       
-      {/* 1. Mobile Top Header */}
-      <header className="md:hidden flex items-center justify-between px-5 py-3.5 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 sticky top-0 z-40">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="relative h-8 w-8 rounded-xl bg-orange-500/10 p-1 border border-orange-500/20">
-            <Image src="/connect-hub.png" alt="Connect Hub" fill className="object-contain p-0.5" priority />
-          </div>
-          <div>
-            <h1 className="font-extrabold text-sm text-[#111827] leading-tight">Connect Hub</h1>
-            <span className="text-[9px] font-bold text-[#FF6B00] uppercase tracking-wider">{currentUser.role.replace("_", " ")}</span>
-          </div>
-        </Link>
-
-        <div className="flex items-center gap-1">
-          <ChangePasswordModal />
-          <LogoutButton />
-        </div>
-      </header>
-
-      {/* 2. Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-72 shrink-0 bg-white/90 backdrop-blur-xl border border-slate-200/70 p-6 justify-between m-4 rounded-[32px] shadow-xl shadow-slate-200/50 sticky top-4 h-[calc(100vh-2rem)] z-30">
-        <div className="space-y-7">
-          <Link href="/" className="flex items-center gap-3 group px-1">
-            <div className="relative h-11 w-11 rounded-2xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 p-1 border border-orange-500/25 shadow-sm transition-transform group-hover:scale-105">
+      {/* Desktop Sidebar (Fixed viewport height so footer is always visible) */}
+      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200/80 p-5 justify-between shrink-0 h-screen sticky top-0 z-30">
+        <div className="space-y-6">
+          {/* Logo & Branding */}
+          <Link href="/" className="flex items-center gap-3 px-2">
+            <div className="relative w-9 h-9 rounded-2xl overflow-hidden shadow-md shadow-orange-500/20 bg-white">
               <Image
                 src="/connect-hub.png"
                 alt="Connect Hub"
                 fill
-                className="object-contain p-1"
+                sizes="36px"
+                className="object-cover"
                 priority
               />
             </div>
             <div>
-              <h1 className="font-extrabold text-base text-[#111827] tracking-tight leading-none">Connect Hub</h1>
-              <span className="text-[10px] font-bold text-[#FF6B00] tracking-wider uppercase">Ministry Portal</span>
+              <h1 className="font-black text-base text-[#111827] tracking-tight leading-none">
+                Connect Hub
+              </h1>
+              <span className="text-[10px] font-bold text-[#FF6B00]">
+                River of God
+              </span>
             </div>
           </Link>
 
-          <nav className="space-y-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pb-1 block">
-              Navigation
-            </span>
-
-            <Link
-              href="/"
-              className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:text-[#111827] hover:bg-orange-50/70 transition-all"
-            >
-              <LayoutDashboard className="w-4 h-4 text-slate-400" />
-              Dashboard
-            </Link>
-
-            <Link
-              href="/vips"
-              className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-slate-600 hover:text-[#111827] hover:bg-orange-50/70 transition-all"
-            >
-              <UserPlus className="w-4 h-4 text-slate-400" />
-              First Timers
-            </Link>
-
-            <Link
-              href="/team"
-              className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-slate-600 hover:text-[#111827] hover:bg-orange-50/70 transition-all"
-            >
-              <Users className="w-4 h-4 text-slate-400" />
-              Connect Team
-            </Link>
-
-            <Link
-              href="/finances"
-              className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-slate-600 hover:text-[#111827] hover:bg-orange-50/70 transition-all"
-            >
-              <WalletCards className="w-4 h-4 text-slate-400" />
-              Ledger & Dues
-            </Link>
-
-            {isAdmin && (
-              <div className="pt-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 pb-1 block">
-                  Administration
-                </span>
-                <Link
-                  href="/admin/users"
-                  className="flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold text-rose-700 bg-rose-50/60 hover:bg-rose-100/70 border border-rose-200/60 transition-all"
-                >
-                  <ShieldCheck className="w-4 h-4 text-rose-600" />
-                  Staff Accounts
-                </Link>
-              </div>
-            )}
-          </nav>
+          {/* Navigation Links */}
+          <SidebarNav />
         </div>
 
-        {/* User Card with Change Password & Logout */}
-        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white shrink-0 shadow-sm shadow-orange-500/20 font-bold text-xs">
-              <User className="w-4 h-4" />
-            </div>
-            <div className="truncate">
-              <div className="text-xs font-bold text-[#111827] truncate leading-tight">
-                {currentUser.fullName}
+        {/* User Card, Change Password & Logout (Always visible above bottom) */}
+        <div className="space-y-2 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between p-2 rounded-2xl bg-slate-50 border border-slate-100">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-[#FF6B00] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-sm">
+                {user.name ? user.name.charAt(0).toUpperCase() : <UserCircle2 className="w-4 h-4" />}
               </div>
-              <span className="text-[10px] font-semibold text-[#FF6B00] block truncate">
-                {currentUser.role.replace("_", " ")}
-              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-black text-[#111827] truncate">
+                  {user.name || user.email}
+                </div>
+                <div className="text-[9px] font-black text-orange-500 uppercase tracking-wider">
+                  {isAdmin ? "Admin" : user.role || "Minister"}
+                </div>
+              </div>
             </div>
+
+            <ChangePasswordModal />
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            <ChangePasswordModal />
-            <LogoutButton />
-          </div>
+          <LogoutButton className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors w-full text-left" />
         </div>
       </aside>
 
-      {/* 3. Main Content Area */}
-      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto max-w-7xl">
-        {children}
-      </main>
-
-      {/* 4. Mobile Floating Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-3 inset-x-4 z-40 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-[24px] p-2 shadow-2xl shadow-slate-400/30 flex items-center justify-around">
-        <Link
-          href="/"
-          className="flex flex-col items-center gap-1 py-1 px-3 text-slate-500 hover:text-[#FF6B00] transition-colors"
-        >
-          <LayoutDashboard className="w-5 h-5" />
-          <span className="text-[10px] font-bold">Home</span>
-        </Link>
-
-        <Link
-          href="/first-timers"
-          className="flex flex-col items-center gap-1 py-1 px-3 text-slate-500 hover:text-[#FF6B00] transition-colors"
-        >
-          <UserPlus className="w-5 h-5" />
-          <span className="text-[10px] font-bold">Visitors</span>
-        </Link>
-
-        <Link
-          href="/team"
-          className="flex flex-col items-center gap-1 py-1 px-3 text-slate-500 hover:text-[#FF6B00] transition-colors"
-        >
-          <Users className="w-5 h-5" />
-          <span className="text-[10px] font-bold">Team</span>
-        </Link>
-
-        <Link
-          href="/finances"
-          className="flex flex-col items-center gap-1 py-1 px-3 text-slate-500 hover:text-[#FF6B00] transition-colors"
-        >
-          <WalletCards className="w-5 h-5" />
-          <span className="text-[10px] font-bold">Dues</span>
-        </Link>
-
-        {isAdmin && (
-          <Link
-            href="/admin/users"
-            className="flex flex-col items-center gap-1 py-1 px-3 text-rose-600 hover:text-rose-700 transition-colors"
-          >
-            <ShieldCheck className="w-5 h-5" />
-            <span className="text-[10px] font-bold">Admin</span>
+      {/* Main View Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Mobile Header with Profile Drawer Button */}
+        <header className="md:hidden bg-white border-b border-slate-200/80 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="relative w-8 h-8 rounded-xl overflow-hidden bg-white shadow-sm">
+              <Image
+                src="/connect-hub.png"
+                alt="Connect Hub"
+                fill
+                sizes="32px"
+                className="object-cover"
+              />
+            </div>
+            <div>
+              <span className="font-black text-sm text-[#111827] leading-none block">Connect Hub</span>
+              <span className="text-[9px] font-bold text-[#FF6B00]">River of God</span>
+            </div>
           </Link>
-        )}
-      </nav>
 
+          {/* Mobile Profile Trigger (Opens Drawer) */}
+          <MobileUserDrawer user={user} isAdmin={isAdmin} />
+        </header>
+
+        {/* Content Viewport */}
+        <main className="p-4 sm:p-6 lg:p-8 flex-1 max-w-7xl w-full mx-auto pb-24 md:pb-8">
+          {children}
+        </main>
+
+        {/* Bottom Navigation */}
+        <BottomNavBar />
+      </div>
     </div>
   );
 }

@@ -15,10 +15,12 @@ import {
   Copy,
   CheckCheck,
   CheckCircle2,
-  UserCheck
+  UserCheck,
+  Download
 } from "lucide-react";
 import { toggleDiscipleshipStatusAction, markBatchAsTextedAction } from "@/app/actions/firstTimerAction";
 import EditFirstTimerModal from "@/app/components/EditFirstTimerModal";
+import { exportConnectedMembersPdf } from "@/lib/exportConnectedPdf";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -34,7 +36,6 @@ const AGE_GROUPS = [
   "Seasoned"
 ];
 
-// Connect Team Welcome SMS Template
 const WELCOME_SMS_MESSAGE = `Welcome to River of God Church!
 
 We're so glad you joined us for our Sunday Worship service yesterday! 
@@ -69,7 +70,7 @@ export default function VipsTableClient({
   const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
 
-  // Optimistic synchronized records state
+  // Optimistic data synchronization
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
@@ -84,7 +85,12 @@ export default function VipsTableClient({
   const [selectedService, setSelectedService] = useState(searchParams.get("service") || "ALL");
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get("status") || "ALL");
 
-  // Untexted recipients filter for batch SMS
+  // Connected members (started one-to-one) for PDF report
+  const connectedMembers = data.filter((item) =>
+    Boolean(item.startedOne2One ?? item.startedOne2one)
+  );
+
+  // Untexted recipients for batch dispatch
   const untextedVips = data.filter((v) => !v.textedAlready && v.contact);
   const untextedPhoneNumbers = untextedVips
     .map((v) => v.contact?.replace(/[^0-9+]/g, ""))
@@ -131,6 +137,14 @@ export default function VipsTableClient({
     updateFilters(m, y, selectedAge, selectedService, selectedStatus, search);
   };
 
+  const handleExportConnectedPdf = () => {
+    exportConnectedMembersPdf({
+      month: safeMonth,
+      year: safeYear,
+      records: connectedMembers,
+    });
+  };
+
   const handleUpdateItem = (updatedItem: any) => {
     setData((prev) =>
       prev.map((item) => (item._id === updatedItem._id ? updatedItem : item))
@@ -169,7 +183,7 @@ export default function VipsTableClient({
     });
   };
 
-  // Pre-encoded SMS links
+  // Pre-encoded SMS parameters
   const encodedWelcomeBody = encodeURIComponent(WELCOME_SMS_MESSAGE);
   const isIos = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const smsDelimiter = isIos ? "&" : "?";
@@ -178,7 +192,7 @@ export default function VipsTableClient({
   return (
     <div className="space-y-4">
       
-      {/* 1. Month Navigator & Search */}
+      {/* 1. Month Navigator, PDF Export & Search */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-2 bg-white rounded-[24px] border border-slate-200/80 p-3 sm:p-3.5 flex items-center justify-between shadow-sm">
           <button
@@ -201,13 +215,24 @@ export default function VipsTableClient({
             </span>
           </div>
 
-          <button
-            onClick={handleNextMonth}
-            className="p-2 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors"
-            title="Next Month"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleExportConnectedPdf}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] text-xs font-bold transition-all border border-orange-200/60 shadow-sm"
+              title="Export Monthly Connected PDF"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Export Connected ({connectedMembers.length})</span>
+            </button>
+
+            <button
+              onClick={handleNextMonth}
+              className="p-2 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors"
+              title="Next Month"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <form
@@ -222,13 +247,13 @@ export default function VipsTableClient({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search VIP, phone, leader, updater..."
+            placeholder="Search VIP, phone, leader..."
             className="w-full pl-11 pr-4 py-3 sm:py-3.5 rounded-[24px] bg-white border border-slate-200/80 text-xs sm:text-sm font-medium text-[#111827] placeholder-slate-400 focus:outline-none focus:border-[#FF6B00] shadow-sm"
           />
         </form>
       </div>
 
-      {/* 2. Age Group Tabs */}
+      {/* 2. Age Group Filter Tabs */}
       <div className="space-y-1.5">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
           Follow-Up Age Group
@@ -253,7 +278,7 @@ export default function VipsTableClient({
         </div>
       </div>
 
-      {/* 3. Follow-Up Dispatch Box */}
+      {/* 3. Follow-Up Dispatch Banner */}
       <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent border border-orange-200/80 rounded-[28px] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
         <div>
           <div className="text-xs font-black text-[#111827] flex items-center gap-1.5">
@@ -399,7 +424,7 @@ export default function VipsTableClient({
                   </span>
                 </div>
 
-                {/* Approached, 1-on-1 & Followed-Up By Info */}
+                {/* Approached, 1-on-1 & Followed-Up By */}
                 <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase font-bold text-slate-400">Approached by</span>
@@ -407,7 +432,7 @@ export default function VipsTableClient({
                   </div>
                   {item.connectedWith && (
                     <div className="flex items-center justify-between text-[11px] text-emerald-700 font-semibold">
-                      <span className="text-[10px] uppercase font-bold text-emerald-600">1-on-1 Connected</span>
+                      <span className="text-[10px] uppercase font-bold text-emerald-600">Connected:</span>
                       <span>{item.connectedWith}</span>
                     </div>
                   )}
@@ -557,7 +582,7 @@ export default function VipsTableClient({
                         <div className="text-xs font-bold text-slate-800">{item.approachedBy}</div>
                         {item.connectedWith && (
                           <div className="text-[11px] text-emerald-600 font-semibold">
-                            1-on-1: {item.connectedWith}
+                            Connected: {item.connectedWith}
                           </div>
                         )}
                         {item.followedUpBy && (
