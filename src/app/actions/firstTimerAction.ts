@@ -70,7 +70,7 @@ export async function createFirstTimerAction(formData: FormData) {
     });
 
     revalidatePath("/");
-    revalidatePath("/first-timers/new");
+    revalidatePath("/intake");
 
     return { success: true };
   } catch (error: any) {
