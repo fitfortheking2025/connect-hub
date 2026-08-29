@@ -1,6 +1,9 @@
-
+import NextAuth from "next-auth";
+import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
-import { auth } from "./auth";
+
+const { auth } = NextAuth(authConfig);
+
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
@@ -10,12 +13,10 @@ export default auth((req) => {
   const isPublicIntake = nextUrl.pathname.startsWith("/intake");
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
 
-  // Allow public intake form without authentication
   if (isPublicIntake) {
     return NextResponse.next();
   }
 
-  // If on login page and already logged in, redirect to portal dashboard
   if (isAuthPage) {
     if (isLoggedIn) {
       return NextResponse.redirect(new URL("/", nextUrl));
@@ -23,7 +24,6 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Protect all other portal routes
   if (!isLoggedIn) {
     let callbackUrl = nextUrl.pathname;
     if (nextUrl.search) {
@@ -35,7 +35,6 @@ export default auth((req) => {
     );
   }
 
-  // Role Gate: Protect admin-only routes
   if (isAdminRoute && userRole !== "ADMIN") {
     return NextResponse.redirect(new URL("/", nextUrl));
   }

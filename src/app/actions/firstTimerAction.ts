@@ -77,3 +77,24 @@ export async function createFirstTimerAction(formData: FormData) {
     return { success: false, error: error.message || "Failed to submit intake." };
   }
 }
+
+export async function toggleDiscipleshipStatusAction(
+  id: string,
+  field: "textedAlready" | "oneToOneStarted",
+  value: boolean
+) {
+  try {
+    await dbConnect();
+    const updateData: Record<string, any> = { [field]: value };
+    if (field === "oneToOneStarted") {
+      updateData.oneToOneStatus = value ? "IN_PROGRESS" : "NOT_STARTED";
+    }
+
+    await FirstTimer.findByIdAndUpdate(id, updateData);
+    revalidatePath("/vips");
+    revalidatePath("/");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}

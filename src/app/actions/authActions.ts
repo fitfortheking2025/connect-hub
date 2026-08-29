@@ -7,6 +7,53 @@ import dbConnect from "@/lib/mongodb";
 import { User, TeamMember } from "@/models";
 import { revalidatePath } from "next/cache";
 
+export async function changePasswordAction(formData: FormData) {
+  try {
+    const session = await auth();
+    const userId = (session?.user as any)?.id;
+
+    if (!userId) {
+      return { success: false, error: "Unauthorized. Please log in first." };
+    }
+
+    const currentPassword = formData.get("currentPassword") as string;
+    const newPassword = formData.get("newPassword") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return { success: false, error: "Please fill in all password fields." };
+    }
+
+    if (newPassword.length < 6) {
+      return { success: false, error: "New password must be at least 6 characters." };
+    }
+
+    if (newPassword !== confirmPassword) {
+      return { success: false, error: "New password and confirmation do not match." };
+    }
+
+    await dbConnect();
+
+    const user = await User.findById(userId);
+    if (!user || !user.passwordHash) {
+      return { success: false, error: "User account not found." };
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return { success: false, error: "Current password is incorrect." };
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to update password." };
+  }
+}
+
 export async function loginAction(formData: FormData) {
   const username = formData.get("username") as string;
   const password = formData.get("password") as string;
