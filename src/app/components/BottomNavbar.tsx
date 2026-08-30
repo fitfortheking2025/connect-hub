@@ -4,11 +4,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
-  LayoutDashboard, 
+  Home, 
   Sparkles, 
   BarChart3, 
-  Users,
-  ShieldCheck
+  Users, 
+  ShieldCheck 
 } from "lucide-react";
 
 interface BottomNavBarProps {
@@ -20,9 +20,9 @@ export default function BottomNavBar({ isAdmin = false }: BottomNavBarProps) {
 
   const navItems = [
     {
-      label: "Dashboard",
+      label: "Home",
       href: "/",
-      icon: LayoutDashboard,
+      icon: Home,
       isActive: pathname === "/",
     },
     {
@@ -46,7 +46,7 @@ export default function BottomNavBar({ isAdmin = false }: BottomNavBarProps) {
     ...(isAdmin
       ? [
           {
-            label: "Users",
+            label: "Admin",
             href: "/admin/users",
             icon: ShieldCheck,
             isActive: pathname.startsWith("/admin/users"),
@@ -56,8 +56,8 @@ export default function BottomNavBar({ isAdmin = false }: BottomNavBarProps) {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 shadow-[0_-2px_16px_rgba(0,0,0,0.04)] pb-[env(safe-area-inset-bottom)] select-none">
-      <div className="flex items-stretch justify-around max-w-md mx-auto px-1 h-14">
+    <div className="md:hidden fixed bottom-5 inset-x-0 z-50 flex justify-center px-4 pointer-events-none select-none">
+      <nav className="pointer-events-auto flex items-center justify-between gap-1 px-3 py-2 bg-white/90 backdrop-blur-2xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-full w-full max-w-[340px]">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -65,44 +65,24 @@ export default function BottomNavBar({ isAdmin = false }: BottomNavBarProps) {
               key={item.href}
               href={item.href}
               prefetch={true}
-              className={`relative flex flex-col items-center justify-center flex-1 transition-transform duration-100 ease-out active:scale-90 touch-manipulation group ${
-                item.isActive ? "text-[#FF6B00]" : "text-slate-400 hover:text-slate-600"
+              aria-label={item.label}
+              className={`relative flex items-center justify-center h-11 w-11 rounded-full transition-all duration-150 ease-out active:scale-90 touch-manipulation ${
+                item.isActive
+                  ? "bg-orange-50 text-[#FF6B00]"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
               }`}
             >
-              {/* Facebook-style Top Active Indicator Bar */}
-              {item.isActive && (
-                <span className="absolute top-0 inset-x-3 h-0.5 bg-[#FF6B00] rounded-b-full shadow-sm shadow-orange-500/50 transition-all" />
-              )}
-
-              {/* Icon Container with Instant Scale Pop */}
-              <div
-                className={`transition-all duration-150 transform ${
-                  item.isActive ? "scale-110 -translate-y-0.5" : "scale-100 group-hover:scale-105"
-                }`}
-              >
-                <Icon
-                  className={`w-5 h-5 ${
-                    item.isActive
-                      ? "stroke-[2.5] text-[#FF6B00]"
-                      : "stroke-[1.8] text-slate-400 group-hover:text-slate-600"
-                  }`}
-                />
-              </div>
-
-              {/* Label */}
-              <span
-                className={`text-[10px] tracking-tight leading-none mt-1 transition-colors ${
+              <Icon
+                className={`w-5 h-5 transition-transform duration-150 ${
                   item.isActive
-                    ? "font-black text-[#FF6B00]"
-                    : "font-semibold text-slate-400 group-hover:text-slate-600"
+                    ? "stroke-[2.5] text-[#FF6B00] fill-[#FF6B00]/10 scale-105"
+                    : "stroke-[2]"
                 }`}
-              >
-                {item.label}
-              </span>
+              />
             </Link>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }
