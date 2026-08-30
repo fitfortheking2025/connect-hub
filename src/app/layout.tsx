@@ -13,8 +13,13 @@ export const metadata: Metadata = {
   title: "Connect Hub | Discipleship Ministry",
   description: "Connect Ministry & First-Timers Discipleship Hub",
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/icons/icon-192.png?v=3", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png?v=3", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" },
+    ],
   },
   appleWebApp: {
     capable: true,
