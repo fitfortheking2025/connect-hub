@@ -2,13 +2,13 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Connect Hub - Discipleship Ministry",
-    short_name: "ConnectHub",
-    description: "Streamline first timers, follow-up discipleship, and ministry management.",
+    name: "Connect Hub",
+    short_name: "Connect Hub",
+    description: "Connect Ministry System",
     start_url: "/",
     display: "standalone",
-    background_color: "#090D16",
-    theme_color: "#EA580C",
+    background_color: "#F4F6FA",
+    theme_color: "#FF6B00",
     icons: [
       {
         src: "/icons/icon-192.png",
