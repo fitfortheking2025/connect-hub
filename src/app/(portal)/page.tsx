@@ -11,7 +11,9 @@ import {
   Phone, 
   MessageSquare,
   Sparkles,
-  Download
+  Download,
+  UserCheck,
+  ChevronRight
 } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -35,7 +37,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       
-      {/* Header Banner */}
+      {/* 1. Header Banner */}
       <div className="bg-white rounded-[32px] border border-slate-200/80 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-black text-[#111827] tracking-tight">
@@ -54,7 +56,7 @@ export default async function DashboardPage() {
         </button>
       </div>
 
-      {/* Metric Cards */}
+      {/* 2. Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Total Logged */}
@@ -131,13 +133,13 @@ export default async function DashboardPage() {
 
       </div>
 
-      {/* Recent First-Timer Logs Section */}
-      <div className="bg-white rounded-[32px] border border-slate-200/80 shadow-xl shadow-slate-200/40 p-6 space-y-5">
-        <div className="flex items-center justify-between">
+      {/* 3. Recent VIP Logs Container */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-black text-[#111827]">Recent First-Timer Logs</h2>
-              <span className="px-2 py-0.5 rounded-full bg-orange-50 text-[#FF6B00] border border-orange-200/60 text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded-full bg-orange-50 text-[#FF6B00] border border-orange-200/60 text-[10px] font-extrabold">
                 Live Data
               </span>
             </div>
@@ -148,71 +150,240 @@ export default async function DashboardPage() {
 
           <Link
             href="/vips"
-            className="text-xs font-bold text-[#FF6B00] hover:text-[#e05e00] transition-colors"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-[#FF6B00] hover:bg-orange-50 hover:border-orange-200 transition-all shadow-sm"
           >
-            View All →
+            <span>View All</span>
+            <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        {/* Desktop Table View */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                <th className="pb-3 px-3">Visitor</th>
-                <th className="pb-3 px-3">Category</th>
-                <th className="pb-3 px-3">Service</th>
-                <th className="pb-3 px-3">Approached By</th>
-                <th className="pb-3 px-3">Contact & Reach</th>
-                <th className="pb-3 px-3 text-right">Discipleship Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-xs font-medium">
-              {vips.map((item: any) => (
-                <tr key={item._id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3 px-3">
-                    <div className="font-extrabold text-[#111827]">{item.fullName}</div>
-                    <div className="text-[10px] text-slate-400">
-                      {item.ageGroup} • {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        {/* Mobile Cards View (Hidden on Desktop) */}
+        <div className="md:hidden space-y-3">
+          {vips.length === 0 ? (
+            <div className="bg-white rounded-[24px] border border-slate-200/80 p-8 text-center text-slate-400 text-xs font-medium">
+              No recent VIP records found.
+            </div>
+          ) : (
+            vips.map((item: any) => {
+              const isStartedOne2One = Boolean(item.startedOne2One ?? item.startedOne2one);
+
+              return (
+                <div
+                  key={item._id.toString()}
+                  className="bg-white rounded-[24px] border border-slate-200/80 p-4 shadow-sm space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`h-9 w-9 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 ${
+                          item.gender === 1 ? "bg-blue-500 shadow-blue-500/20" : "bg-rose-400 shadow-rose-400/20"
+                        }`}
+                      >
+                        {item.gender === 1 ? "M" : "F"}
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-sm text-[#111827] leading-tight">
+                          {item.fullName}
+                        </h3>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                          <Clock className="w-3 h-3" />
+                          {new Date(item.createdAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="px-2.5 py-1 rounded-xl bg-blue-50 text-blue-600 font-extrabold text-[10px]">
-                      {item.iam}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-bold text-[10px]">
-                      {item.serviceAttended}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 font-bold text-[#111827]">
-                    {item.approachedBy}
-                  </td>
-                  <td className="py-3 px-3">
-                    {item.contact ? (
-                      <span className="font-mono text-slate-600 flex items-center gap-1.5">
-                        <Phone className="w-3 h-3 text-orange-500" /> {item.contact}
-                      </span>
-                    ) : (
-                      <span className="text-slate-300 italic">No contact</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3 text-right">
+
                     <span
-                      className={`inline-block px-3 py-1 rounded-xl font-extrabold text-[11px] ${
-                        item.startedOne2One
-                          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                          : "bg-slate-100 text-slate-600"
+                      className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold border shrink-0 ${
+                        isStartedOne2One
+                          ? "bg-emerald-50 text-emerald-600 border-emerald-300"
+                          : "bg-slate-100 text-slate-500 border-slate-200"
                       }`}
                     >
-                      {item.startedOne2One ? "✓ One-to-One" : "+ Start 1-to-1"}
+                      1-to-1: {isStartedOne2One ? "YES" : "NO"}
                     </span>
-                  </td>
+                  </div>
+
+                  {/* Category Badges */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {item.ageGroup && (
+                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-orange-50 text-[#FF6B00] border border-orange-200/60">
+                        {item.ageGroup}
+                      </span>
+                    )}
+                    {item.serviceAttended && (
+                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600">
+                        {item.serviceAttended}
+                      </span>
+                    )}
+                    {item.iam && (
+                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-500">
+                        {item.iam}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Approached & Connected */}
+                  <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">Approached by</span>
+                      <span className="font-extrabold text-[#111827]">{item.approachedBy}</span>
+                    </div>
+                    {item.connectedWith && (
+                      <div className="flex items-center justify-between text-[11px] text-emerald-700 font-semibold">
+                        <span className="text-[10px] uppercase font-bold text-emerald-600">Connected:</span>
+                        <span>{item.connectedWith}</span>
+                      </div>
+                    )}
+                    {item.followedUpBy && (
+                      <div className="flex items-center justify-between text-[11px] text-indigo-700 pt-1 border-t border-slate-200/60 font-semibold">
+                        <span className="text-[10px] uppercase font-bold text-indigo-500 flex items-center gap-1">
+                          <UserCheck className="w-3 h-3" /> Updated By
+                        </span>
+                        <span className="bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] text-indigo-700 border border-indigo-200/60">
+                          {item.followedUpBy}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Phone & Messenger */}
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    {item.contact ? (
+                      <div className="flex-1 flex items-center gap-1.5 py-2 px-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs font-mono">
+                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                        {item.contact}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-300 italic px-2">No contact</span>
+                    )}
+
+                    {item.messenger && (
+                      <a
+                        href={item.messenger.startsWith("http") ? item.messenger : `https://m.me/${item.messenger}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors shrink-0"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Table View (Hidden on Mobile) */}
+        <div className="hidden md:block bg-white rounded-[32px] border border-slate-200/80 shadow-xl shadow-slate-200/40 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <th className="py-4 px-5">VIP Name</th>
+                  <th className="py-4 px-4">Age Group</th>
+                  <th className="py-4 px-4">Service</th>
+                  <th className="py-4 px-5">Approached By</th>
+                  <th className="py-4 px-5">Contact</th>
+                  <th className="py-4 px-4 text-center">1-to-1 Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm font-medium">
+                {vips.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-16 text-center text-slate-400 text-xs font-medium">
+                      No recent VIP records found.
+                    </td>
+                  </tr>
+                ) : (
+                  vips.map((item: any) => {
+                    const isStartedOne2One = Boolean(item.startedOne2One ?? item.startedOne2one);
+
+                    return (
+                      <tr key={item._id.toString()} className="hover:bg-orange-50/30 transition-colors">
+                        <td className="py-4 px-5">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`h-9 w-9 rounded-xl flex items-center justify-center font-black text-xs text-white shadow-sm ${
+                                item.gender === 1
+                                  ? "bg-blue-500 shadow-blue-500/20"
+                                  : "bg-rose-400 shadow-rose-400/20"
+                              }`}
+                            >
+                              {item.gender === 1 ? "M" : "F"}
+                            </div>
+                            <div>
+                              <div className="font-extrabold text-[#111827]">{item.fullName}</div>
+                              <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                <Clock className="w-3 h-3" />
+                                {new Date(item.createdAt).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-4 px-4">
+                          <span className="px-2.5 py-1 rounded-xl bg-orange-50 text-[#FF6B00] border border-orange-200/60 font-extrabold text-xs">
+                            {item.ageGroup || "N/A"}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-4">
+                          <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-extrabold text-xs">
+                            {item.serviceAttended}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-5">
+                          <div className="text-xs font-bold text-slate-800">{item.approachedBy}</div>
+                          {item.connectedWith && (
+                            <div className="text-[11px] text-emerald-600 font-semibold">
+                              Connected: {item.connectedWith}
+                            </div>
+                          )}
+                          {item.followedUpBy && (
+                            <div className="text-[10px] text-indigo-600 font-bold mt-0.5 flex items-center gap-1">
+                              <span className="text-slate-400 font-medium">Updated By:</span> {item.followedUpBy}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="py-4 px-5">
+                          {item.contact ? (
+                            <span className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700">
+                              <Phone className="w-3 h-3 text-emerald-600" />
+                              {item.contact}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-300 italic">No contact</span>
+                          )}
+                        </td>
+
+                        <td className="py-4 px-4 text-center">
+                          <span
+                            className={`inline-block px-3.5 py-1.5 rounded-xl text-xs font-extrabold border ${
+                              isStartedOne2One
+                                ? "bg-emerald-50 text-emerald-600 border-emerald-300 shadow-sm"
+                                : "bg-slate-100 text-slate-500 border-slate-200"
+                            }`}
+                          >
+                            {isStartedOne2One ? "YES" : "NO"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

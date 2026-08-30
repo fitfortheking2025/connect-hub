@@ -51,9 +51,9 @@ Be sure to check out our social media pages to stay updated. We look forward to 
 P.S. Would you be interested in joining a Life Group to grow further in community?`;
 
 /**
- * Validates and standardizes Philippine mobile numbers.
- * Converts '9060979218', '09060979218', or '639060979218' to '09060979218'.
- * Returns null if the length/format is invalid.
+ * Standardizes and validates Philippine mobile numbers.
+ * Formats valid entries to local standard '09XXXXXXXXX'.
+ * Discards landlines, short codes, and invalid lengths.
  */
 function formatPhilippineMobile(rawContact?: string | null): string | null {
   if (!rawContact) return null;
@@ -186,9 +186,9 @@ export default function VipsTableClient({
     });
   };
 
-  const handleCopyNumbers = () => {
+  const handleCopyNumbers = async () => {
     if (untextedPhoneNumbers.length === 0) return;
-    navigator.clipboard.writeText(untextedPhoneNumbers.join(", "));
+    await navigator.clipboard.writeText(untextedPhoneNumbers.join(", "));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -207,14 +207,24 @@ export default function VipsTableClient({
     });
   };
 
-  // Pre-encoded SMS parameters (iOS uses ';' delimiter for multiple recipients and '&' for query parameters)
+  // Pre-encoded SMS parameters
   const encodedWelcomeBody = encodeURIComponent(WELCOME_SMS_MESSAGE);
   const isIos = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const recipientSeparator = isIos ? ";" : ",";
   const smsQueryPrefix = isIos ? "&" : "?";
-  const bulkSmsHref = untextedPhoneNumbers.length > 0
-    ? `sms:${untextedPhoneNumbers.join(recipientSeparator)}${smsQueryPrefix}body=${encodedWelcomeBody}`
-    : "#";
+
+  // Seamless Copy & Launch Broadcast handler
+  const handleBroadcastSms = async () => {
+    if (untextedPhoneNumbers.length === 0) return;
+
+    // 1. Copy all numbers to the clipboard
+    await navigator.clipboard.writeText(untextedPhoneNumbers.join(", "));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
+
+    // 2. Open native Messages app with the body pre-filled
+    const bulkSmsUrl = `sms:${smsQueryPrefix}body=${encodedWelcomeBody}`;
+    window.location.href = bulkSmsUrl;
+  };
 
   return (
     <div className="space-y-4">
@@ -340,14 +350,13 @@ export default function VipsTableClient({
             )}
           </button>
 
-          <a
-            href={bulkSmsHref}
-            className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black transition-all shadow-md shadow-orange-500/25 ${
-              untextedPhoneNumbers.length === 0 ? "pointer-events-none opacity-40" : ""
-            }`}
+          <button
+            onClick={handleBroadcastSms}
+            disabled={untextedPhoneNumbers.length === 0}
+            className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black transition-all shadow-md shadow-orange-500/25 disabled:opacity-40`}
           >
             <Send className="w-3.5 h-3.5" /> Broadcast SMS
-          </a>
+          </button>
 
           {untextedPhoneNumbers.length > 0 && (
             <button
