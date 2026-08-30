@@ -6,10 +6,15 @@ import {
   LayoutDashboard, 
   Sparkles, 
   BarChart3, 
-  Users 
+  Users,
+  ShieldCheck
 } from "lucide-react";
 
-export default function SidebarNav() {
+interface SidebarNavProps {
+  isAdmin?: boolean;
+}
+
+export default function SidebarNav({ isAdmin = false }: SidebarNavProps) {
   const pathname = usePathname();
 
   const links = [
@@ -17,6 +22,15 @@ export default function SidebarNav() {
     { label: "VIPs & Follow-Up", href: "/vips", icon: Sparkles },
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
     { label: "Connect Team", href: "/connect-team", icon: Users },
+    ...(isAdmin
+      ? [
+          {
+            label: "User Accounts",
+            href: "/admin/users",
+            icon: ShieldCheck,
+          },
+        ]
+      : []),
   ];
 
   return (

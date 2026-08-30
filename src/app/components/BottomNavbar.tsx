@@ -1,4 +1,3 @@
-// src/app/components/BottomNavbar.tsx
 "use client";
 
 import Link from "next/link";
@@ -7,10 +6,15 @@ import {
   LayoutDashboard, 
   Sparkles, 
   BarChart3, 
-  Users 
+  Users,
+  ShieldCheck
 } from "lucide-react";
 
-export default function BottomNavBar() {
+interface BottomNavBarProps {
+  isAdmin?: boolean;
+}
+
+export default function BottomNavBar({ isAdmin = false }: BottomNavBarProps) {
   const pathname = usePathname();
 
   const navItems = [
@@ -38,6 +42,16 @@ export default function BottomNavBar() {
       icon: Users,
       isActive: pathname.startsWith("/connect-team"),
     },
+    ...(isAdmin
+      ? [
+          {
+            label: "Users",
+            href: "/admin/users",
+            icon: ShieldCheck,
+            isActive: pathname.startsWith("/admin/users"),
+          },
+        ]
+      : []),
   ];
 
   return (

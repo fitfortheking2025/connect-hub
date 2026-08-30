@@ -16,8 +16,14 @@ interface PageProps {
 }
 
 export default async function VipsPage({ searchParams }: PageProps) {
-  await auth();
+  const session = await auth();
   await dbConnect();
+
+  const user = session?.user as any;
+  const userRole = String(user?.role || "").toUpperCase();
+
+  // Role Gate: Only ADMIN and TEAM LEADER can export the VIPs PDF
+  const canExportPdf = userRole === "ADMIN" || userRole === "TEAM LEADER";
 
   const params = await searchParams;
   const now = new Date();
@@ -92,6 +98,7 @@ export default async function VipsPage({ searchParams }: PageProps) {
         selectedYear={selectedYear}
         selectedMonth={selectedMonth}
         teamMembers={JSON.parse(JSON.stringify(teamMembers))}
+        canExportPdf={canExportPdf}
       />
     </div>
   );

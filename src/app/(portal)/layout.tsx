@@ -21,15 +21,15 @@ export default async function PortalLayout({
   }
 
   const user = session.user as any;
-  const isAdmin = user?.role === "ADMIN";
+  // Case-insensitive check to ensure 'admin' or 'ADMIN' works reliably
+  const isAdmin = String(user?.role || "").toUpperCase() === "ADMIN";
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row">
       
-      {/* Desktop Sidebar (Fixed viewport height so footer is always visible) */}
+      {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200/80 p-5 justify-between shrink-0 h-screen sticky top-0 z-30">
         <div className="space-y-6">
-          {/* Logo & Branding */}
           <Link href="/" className="flex items-center gap-3 px-2">
             <div className="relative w-9 h-9 rounded-2xl overflow-hidden shadow-md shadow-orange-500/20 bg-white">
               <Image
@@ -51,11 +51,10 @@ export default async function PortalLayout({
             </div>
           </Link>
 
-          {/* Navigation Links */}
-          <SidebarNav />
+          {/* Pass isAdmin to SidebarNav */}
+          <SidebarNav isAdmin={isAdmin} />
         </div>
 
-        {/* User Card, Change Password & Logout (Always visible above bottom) */}
         <div className="space-y-2 pt-4 border-t border-slate-100">
           <div className="flex items-center justify-between p-2 rounded-2xl bg-slate-50 border border-slate-100">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -81,8 +80,6 @@ export default async function PortalLayout({
 
       {/* Main View Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* Mobile Header with Profile Drawer Button */}
         <header className="md:hidden bg-white border-b border-slate-200/80 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="relative w-8 h-8 rounded-xl overflow-hidden bg-white shadow-sm">
@@ -100,17 +97,15 @@ export default async function PortalLayout({
             </div>
           </Link>
 
-          {/* Mobile Profile Trigger (Opens Drawer) */}
           <MobileUserDrawer user={user} isAdmin={isAdmin} />
         </header>
 
-        {/* Content Viewport */}
         <main className="p-4 sm:p-6 lg:p-8 flex-1 max-w-7xl w-full mx-auto pb-24 md:pb-8">
           {children}
         </main>
 
-        {/* Bottom Navigation */}
-        <BottomNavBar />
+        {/* Pass isAdmin to BottomNavBar */}
+        <BottomNavBar isAdmin={isAdmin} />
       </div>
     </div>
   );

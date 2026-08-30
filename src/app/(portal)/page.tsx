@@ -10,8 +10,6 @@ import {
   ArrowUpRight, 
   Phone, 
   MessageSquare,
-  Sparkles,
-  Download,
   UserCheck,
   ChevronRight
 } from "lucide-react";
@@ -37,8 +35,8 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       
-      {/* 1. Header Banner */}
-      <div className="bg-white rounded-[32px] border border-slate-200/80 p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+      {/* 1. Header Banner (Cleaned without Export Button) */}
+      <div className="bg-white rounded-[32px] border border-slate-200/80 p-6 sm:p-8 flex flex-col justify-between gap-4 shadow-sm">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-black text-[#111827] tracking-tight">
             Welcome to <span className="text-[#FF6B00]">Connect Hub</span>
@@ -47,13 +45,6 @@ export default async function DashboardPage() {
             Live telemetry for first-timer Sunday intakes, discipleship funnels, and approaching leaders.
           </p>
         </div>
-
-        <button
-          type="button"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all w-fit"
-        >
-          <Download className="w-3.5 h-3.5 text-slate-500" /> Export Summary
-        </button>
       </div>
 
       {/* 2. Metric Cards */}
@@ -95,7 +86,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Connect Team (Live Dynamic Count) */}
+        {/* Connect Team */}
         <div className="bg-white rounded-[28px] border border-slate-200/80 p-5 space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Connect Team</span>
@@ -133,12 +124,12 @@ export default async function DashboardPage() {
 
       </div>
 
-      {/* 3. Recent VIP Logs Container */}
+      {/* 3. Recent VIP Logs */}
       <div className="space-y-4">
         <div className="flex items-center justify-between px-1">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-[#111827]">Recent First-Timer Logs</h2>
+              <h2 className="text-lg font-black text-[#111827]">VIP Logs</h2>
               <span className="px-2 py-0.5 rounded-full bg-orange-50 text-[#FF6B00] border border-orange-200/60 text-[10px] font-extrabold">
                 Live Data
               </span>
@@ -157,7 +148,7 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        {/* Mobile Cards View (Hidden on Desktop) */}
+        {/* Mobile Cards */}
         <div className="md:hidden space-y-3">
           {vips.length === 0 ? (
             <div className="bg-white rounded-[24px] border border-slate-200/80 p-8 text-center text-slate-400 text-xs font-medium">
@@ -207,7 +198,6 @@ export default async function DashboardPage() {
                     </span>
                   </div>
 
-                  {/* Category Badges */}
                   <div className="flex flex-wrap items-center gap-1.5">
                     {item.ageGroup && (
                       <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-orange-50 text-[#FF6B00] border border-orange-200/60">
@@ -226,7 +216,6 @@ export default async function DashboardPage() {
                     )}
                   </div>
 
-                  {/* Approached & Connected */}
                   <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] uppercase font-bold text-slate-400">Approached by</span>
@@ -250,7 +239,6 @@ export default async function DashboardPage() {
                     )}
                   </div>
 
-                  {/* Phone & Messenger */}
                   <div className="flex items-center justify-between gap-2 pt-1">
                     {item.contact ? (
                       <div className="flex-1 flex items-center gap-1.5 py-2 px-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs font-mono">
@@ -278,7 +266,7 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Desktop Table View (Hidden on Mobile) */}
+        {/* Desktop Table View */}
         <div className="hidden md:block bg-white rounded-[32px] border border-slate-200/80 shadow-xl shadow-slate-200/40 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">

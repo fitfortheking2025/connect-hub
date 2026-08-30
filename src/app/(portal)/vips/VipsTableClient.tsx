@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import * as XLSX from "xlsx";
 import { 
   Search, 
   Calendar, 
@@ -16,7 +17,8 @@ import {
   CheckCheck,
   CheckCircle2,
   UserCheck,
-  Download
+  Download,
+  FileSpreadsheet
 } from "lucide-react";
 import { toggleDiscipleshipStatusAction, markBatchAsTextedAction } from "@/app/actions/firstTimerAction";
 import EditFirstTimerModal from "@/app/components/EditFirstTimerModal";
@@ -50,11 +52,6 @@ Be sure to check out our social media pages to stay updated. We look forward to 
 
 P.S. Would you be interested in joining a Life Group to grow further in community?`;
 
-/**
- * Standardizes and validates Philippine mobile numbers.
- * Formats valid entries to local standard '09XXXXXXXXX'.
- * Discards landlines, short codes, and invalid lengths.
- */
 function formatPhilippineMobile(rawContact?: string | null): string | null {
   if (!rawContact) return null;
 
@@ -74,12 +71,20 @@ function formatPhilippineMobile(rawContact?: string | null): string | null {
   return `0${tenDigit}`;
 }
 
+function formatInternationalMobile(localPhone: string): string {
+  if (localPhone.startsWith("0")) {
+    return `+63${localPhone.slice(1)}`;
+  }
+  return localPhone;
+}
+
 interface VipsClientProps {
   initialData: any[];
   totalInMonth: number;
   selectedYear: number;
   selectedMonth: number;
   teamMembers: any[];
+  canExportPdf?: boolean;
 }
 
 export default function VipsTableClient({
@@ -88,13 +93,13 @@ export default function VipsTableClient({
   selectedYear,
   selectedMonth,
   teamMembers,
+  canExportPdf = false,
 }: VipsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
 
-  // Optimistic data synchronization
   const [data, setData] = useState(initialData);
 
   useEffect(() => {
@@ -109,12 +114,10 @@ export default function VipsTableClient({
   const [selectedService, setSelectedService] = useState(searchParams.get("service") || "ALL");
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get("status") || "ALL");
 
-  // Connected members (started one-to-one) for PDF report
   const connectedMembers = data.filter((item) =>
     Boolean(item.startedOne2One ?? item.startedOne2one)
   );
 
-  // Untexted VIPs who possess a valid formatted Philippine mobile number
   const untextedVips = data.filter((v) => !v.textedAlready && !!formatPhilippineMobile(v.contact));
   const untextedPhoneNumbers = untextedVips
     .map((v) => formatPhilippineMobile(v.contact)!)
@@ -162,11 +165,41 @@ export default function VipsTableClient({
   };
 
   const handleExportConnectedPdf = () => {
+    if (!canExportPdf) return;
     exportConnectedMembersPdf({
       month: safeMonth,
       year: safeYear,
       records: connectedMembers,
     });
+  };
+  // Export Single Column Phone Numbers Only (09xx) as an .xlsx Excel file
+  const handleExportPhoneNumbersExcel = () => {
+    if (!canExportPdf) return;
+
+    const exportRows = data
+      .map((item) => {
+        const local = formatPhilippineMobile(item.contact);
+        if (!local) return null;
+        return {
+          "Phone Number": local,
+        };
+      })
+      .filter(Boolean);
+
+    if (exportRows.length === 0) {
+      alert("No valid phone numbers found for this month.");
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
+
+    // Column width for the single phone number column
+    worksheet["!cols"] = [{ wch: 18 }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Contacts");
+
+    XLSX.writeFile(workbook, `VIP_Phone_Numbers_${MONTHS[safeMonth - 1]}_${safeYear}.xlsx`);
   };
 
   const handleUpdateItem = (updatedItem: any) => {
@@ -207,21 +240,17 @@ export default function VipsTableClient({
     });
   };
 
-  // Pre-encoded SMS parameters
   const encodedWelcomeBody = encodeURIComponent(WELCOME_SMS_MESSAGE);
   const isIos = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const smsQueryPrefix = isIos ? "&" : "?";
 
-  // Seamless Copy & Launch Broadcast handler
   const handleBroadcastSms = async () => {
     if (untextedPhoneNumbers.length === 0) return;
 
-    // 1. Copy all numbers to the clipboard
     await navigator.clipboard.writeText(untextedPhoneNumbers.join(", "));
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
 
-    // 2. Open native Messages app with the body pre-filled
     const bulkSmsUrl = `sms:${smsQueryPrefix}body=${encodedWelcomeBody}`;
     window.location.href = bulkSmsUrl;
   };
@@ -229,7 +258,7 @@ export default function VipsTableClient({
   return (
     <div className="space-y-4">
       
-      {/* 1. Month Navigator, PDF Export & Search */}
+      {/* 1. Month Navigator, PDF & Excel Export & Search */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-2 bg-white rounded-[24px] border border-slate-200/80 p-3 sm:p-3.5 flex items-center justify-between shadow-sm">
           <button
@@ -253,14 +282,28 @@ export default function VipsTableClient({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleExportConnectedPdf}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] text-xs font-bold transition-all border border-orange-200/60 shadow-sm"
-              title="Export Monthly Connected PDF"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Export Connected ({connectedMembers.length})</span>
-            </button>
+            {/* Conditional Role Gate: ADMIN & TEAM LEADER only */}
+            {canExportPdf && (
+              <>
+                <button
+                  onClick={handleExportPhoneNumbersExcel}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-sm"
+                  title="Export Contacts as Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="hidden sm:inline">Export Excel</span>
+                </button>
+
+                <button
+                  onClick={handleExportConnectedPdf}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] text-xs font-bold transition-all border border-orange-200/60 shadow-sm"
+                  title="Export Monthly Connected PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Export Connected ({connectedMembers.length})</span>
+                </button>
+              </>
+            )}
 
             <button
               onClick={handleNextMonth}
@@ -448,7 +491,6 @@ export default function VipsTableClient({
                   <EditFirstTimerModal item={item} teamMembers={teamMembers} onUpdate={handleUpdateItem} />
                 </div>
 
-                {/* Badges */}
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-orange-50 text-[#FF6B00] border border-orange-200/60">
                     {item.ageGroup}
@@ -461,7 +503,6 @@ export default function VipsTableClient({
                   </span>
                 </div>
 
-                {/* Approached, 1-on-1 & Followed-Up By */}
                 <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase font-bold text-slate-400">Approached by</span>
@@ -485,7 +526,6 @@ export default function VipsTableClient({
                   )}
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex items-center justify-between gap-2 pt-1">
                   {formattedPhone ? (
                     <a
