@@ -50,6 +50,30 @@ Be sure to check out our social media pages to stay updated. We look forward to 
 
 P.S. Would you be interested in joining a Life Group to grow further in community?`;
 
+/**
+ * Validates and standardizes Philippine mobile numbers.
+ * Converts '9060979218', '09060979218', or '639060979218' to '09060979218'.
+ * Returns null if the length/format is invalid.
+ */
+function formatPhilippineMobile(rawContact?: string | null): string | null {
+  if (!rawContact) return null;
+
+  const digits = rawContact.replace(/\D/g, "");
+
+  let tenDigit = "";
+  if (digits.length === 10 && digits.startsWith("9")) {
+    tenDigit = digits;
+  } else if (digits.length === 11 && digits.startsWith("09")) {
+    tenDigit = digits.slice(1);
+  } else if (digits.length === 12 && digits.startsWith("639")) {
+    tenDigit = digits.slice(2);
+  } else {
+    return null;
+  }
+
+  return `0${tenDigit}`;
+}
+
 interface VipsClientProps {
   initialData: any[];
   totalInMonth: number;
@@ -90,11 +114,11 @@ export default function VipsTableClient({
     Boolean(item.startedOne2One ?? item.startedOne2one)
   );
 
-  // Untexted recipients for batch dispatch
-  const untextedVips = data.filter((v) => !v.textedAlready && v.contact);
+  // Untexted VIPs who possess a valid formatted Philippine mobile number
+  const untextedVips = data.filter((v) => !v.textedAlready && !!formatPhilippineMobile(v.contact));
   const untextedPhoneNumbers = untextedVips
-    .map((v) => v.contact?.replace(/[^0-9+]/g, ""))
-    .filter((num): num is string => !!num && num.length >= 7);
+    .map((v) => formatPhilippineMobile(v.contact)!)
+    .filter(Boolean);
 
   const updateFilters = (
     m: number,
@@ -183,11 +207,14 @@ export default function VipsTableClient({
     });
   };
 
-  // Pre-encoded SMS parameters
+  // Pre-encoded SMS parameters (iOS uses ';' delimiter for multiple recipients and '&' for query parameters)
   const encodedWelcomeBody = encodeURIComponent(WELCOME_SMS_MESSAGE);
   const isIos = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const smsDelimiter = isIos ? "&" : "?";
-  const bulkSmsHref = `sms:${untextedPhoneNumbers.join(",")}?${smsDelimiter}body=${encodedWelcomeBody}`;
+  const recipientSeparator = isIos ? ";" : ",";
+  const smsQueryPrefix = isIos ? "&" : "?";
+  const bulkSmsHref = untextedPhoneNumbers.length > 0
+    ? `sms:${untextedPhoneNumbers.join(recipientSeparator)}${smsQueryPrefix}body=${encodedWelcomeBody}`
+    : "#";
 
   return (
     <div className="space-y-4">
@@ -314,7 +341,7 @@ export default function VipsTableClient({
           </button>
 
           <a
-            href={untextedPhoneNumbers.length > 0 ? bulkSmsHref : "#"}
+            href={bulkSmsHref}
             className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black transition-all shadow-md shadow-orange-500/25 ${
               untextedPhoneNumbers.length === 0 ? "pointer-events-none opacity-40" : ""
             }`}
@@ -375,8 +402,9 @@ export default function VipsTableClient({
           </div>
         ) : (
           data.map((item: any) => {
-            const singleSmsHref = item.contact
-              ? `sms:${item.contact.replace(/[^0-9+]/g, "")}?${smsDelimiter}body=${encodedWelcomeBody}`
+            const formattedPhone = formatPhilippineMobile(item.contact);
+            const singleSmsHref = formattedPhone
+              ? `sms:${formattedPhone}${smsQueryPrefix}body=${encodedWelcomeBody}`
               : "#";
 
             return (
@@ -450,17 +478,19 @@ export default function VipsTableClient({
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between gap-2 pt-1">
-                  {item.contact ? (
+                  {formattedPhone ? (
                     <a
                       href={singleSmsHref}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-100 hover:bg-orange-50 hover:text-[#FF6B00] text-slate-700 font-bold text-xs font-mono transition-colors"
                       title="Send Welcome SMS"
                     >
                       <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                      {item.contact}
+                      {formattedPhone}
                     </a>
                   ) : (
-                    <span className="text-xs text-slate-300 italic px-2">No phone</span>
+                    <span className="text-xs text-slate-300 italic px-2">
+                      {item.contact ? "Invalid phone" : "No phone"}
+                    </span>
                   )}
 
                   {item.messenger && (
@@ -536,8 +566,9 @@ export default function VipsTableClient({
                 </tr>
               ) : (
                 data.map((item: any) => {
-                  const singleSmsHref = item.contact
-                    ? `sms:${item.contact.replace(/[^0-9+]/g, "")}?${smsDelimiter}body=${encodedWelcomeBody}`
+                  const formattedPhone = formatPhilippineMobile(item.contact);
+                  const singleSmsHref = formattedPhone
+                    ? `sms:${formattedPhone}${smsQueryPrefix}body=${encodedWelcomeBody}`
                     : "#";
 
                   return (
@@ -593,17 +624,19 @@ export default function VipsTableClient({
                       </td>
 
                       <td className="py-4 px-5">
-                        {item.contact ? (
+                        {formattedPhone ? (
                           <a
                             href={singleSmsHref}
                             className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700 hover:text-[#FF6B00]"
                             title="Click to send welcome SMS"
                           >
                             <Phone className="w-3 h-3 text-emerald-600" />
-                            {item.contact}
+                            {formattedPhone}
                           </a>
                         ) : (
-                          <span className="text-[11px] text-slate-300 italic">No contact</span>
+                          <span className="text-[11px] text-slate-300 italic">
+                            {item.contact ? "Invalid phone" : "No contact"}
+                          </span>
                         )}
                       </td>
 

@@ -24,3 +24,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Disable mobile tap blue highlight */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Native feel: smooth scrolling without rubber-banding overscroll */
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-touch-callout: none;
+}
