@@ -12,6 +12,10 @@ const font = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "Connect Hub | Discipleship Ministry",
   description: "Connect Ministry & First-Timers Discipleship Hub",
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
