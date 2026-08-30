@@ -36,6 +36,7 @@ export default function RootLayout({
       <body className={`${font.className} bg-[#F4F6FA] text-[#1E2640] min-h-screen antialiased selection:bg-[#FF6B00] selection:text-white`}>
         <SplashScreen />
         {children}
+        {/* This component is for installing in the phone */}
         <InstallPrompt />
       </body>
     </html>
