@@ -1,8 +1,7 @@
 // src/app/components/BottomNavbar.tsx
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { 
   Home, 
   Sparkles, 
@@ -17,6 +16,7 @@ interface BottomNavBarProps {
 
 export default function BottomNavBar({ isAdmin = false }: BottomNavBarProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const navItems = [
     {
@@ -55,31 +55,40 @@ export default function BottomNavBar({ isAdmin = false }: BottomNavBarProps) {
       : []),
   ];
 
+  const handleNavigate = (href: string) => {
+    if (pathname === href) return;
+    router.push(href);
+  };
+
   return (
     <div className="md:hidden fixed bottom-5 inset-x-0 z-50 flex justify-center px-4 pointer-events-none select-none">
-      <nav className="pointer-events-auto flex items-center justify-between gap-1 px-3 py-2 bg-white/90 backdrop-blur-2xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-full w-full max-w-[340px]">
+      <nav 
+        className="pointer-events-auto flex items-center justify-between gap-1 px-3 py-2 bg-white/95 backdrop-blur-2xl border border-slate-200/80 shadow-[0_10px_35px_rgba(0,0,0,0.12)] rounded-full w-full max-w-[340px]"
+        style={{ WebkitTapHighlightColor: "transparent" }}
+      >
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
-            <Link
+            <button
               key={item.href}
-              href={item.href}
-              prefetch={true}
+              type="button"
               aria-label={item.label}
-              className={`relative flex items-center justify-center h-11 w-11 rounded-full transition-all duration-150 ease-out active:scale-90 touch-manipulation ${
+              onPointerDown={() => router.prefetch(item.href)}
+              onClick={() => handleNavigate(item.href)}
+              className={`relative flex items-center justify-center h-11 w-11 rounded-full transition-all duration-150 ease-out active:scale-75 touch-manipulation cursor-pointer ${
                 item.isActive
-                  ? "bg-orange-50 text-[#FF6B00]"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
+                  ? "bg-orange-50 text-[#FF6B00] shadow-sm shadow-orange-500/10"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <Icon
                 className={`w-5 h-5 transition-transform duration-150 ${
                   item.isActive
-                    ? "stroke-[2.5] text-[#FF6B00] fill-[#FF6B00]/10 scale-105"
+                    ? "stroke-[2.5] text-[#FF6B00] scale-110"
                     : "stroke-[2]"
                 }`}
               />
-            </Link>
+            </button>
           );
         })}
       </nav>

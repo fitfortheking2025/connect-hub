@@ -66,10 +66,10 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* 1-to-1 Discipleship */}
+        {/* One2One Discipleship */}
         <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1.5 sm:space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">1-to-1</span>
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">One-2-One</span>
             <div className="p-1.5 sm:p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
               <HeartHandshake className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
@@ -186,7 +186,7 @@ export default async function DashboardPage() {
                           : "bg-slate-100 text-slate-500 border-slate-200"
                       }`}
                     >
-                      1-to-1: {isStartedOne2One ? "YES" : "NO"}
+                      One2One: {isStartedOne2One ? "YES" : "NO"}
                     </span>
                   </div>
 
@@ -269,7 +269,7 @@ export default async function DashboardPage() {
                   <th className="py-4 px-4">Service</th>
                   <th className="py-4 px-5">Approached By</th>
                   <th className="py-4 px-5">Contact</th>
-                  <th className="py-4 px-4 text-center">1-to-1 Status</th>
+                  <th className="py-4 px-4 text-center">One2One Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm font-medium">
