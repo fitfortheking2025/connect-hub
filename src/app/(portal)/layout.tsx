@@ -94,7 +94,6 @@ export default async function PortalLayout({
             </div>
             <div>
               <span className="font-black text-sm text-[#111827] leading-none block">Connect Hub</span>
-              <span className="text-[9px] font-bold text-[#FF6B00]">River of God</span>
             </div>
           </Link>
 
