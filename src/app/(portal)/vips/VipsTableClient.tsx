@@ -1,3 +1,4 @@
+// src/app/(portal)/vips/VipsTableClient.tsx
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
@@ -69,6 +70,32 @@ function formatPhilippineMobile(rawContact?: string | null): string | null {
   }
 
   return `0${tenDigit}`;
+}
+
+function getGenderInfo(gender: any) {
+  const isMale = gender === 1 || gender === "1" || String(gender).toUpperCase() === "MALE" || String(gender).toUpperCase() === "M";
+  return {
+    label: isMale ? "Male" : "Female",
+    short: isMale ? "M" : "F",
+    isMale,
+  };
+}
+
+function getAgeGroupBadgeStyle(ageGroup?: string) {
+  switch (ageGroup) {
+    case "Youth":
+      return "bg-purple-50 text-purple-700 border-purple-200/80";
+    case "Young Adult":
+      return "bg-orange-50 text-[#FF6B00] border-orange-200/80";
+    case "River Men":
+      return "bg-blue-50 text-blue-700 border-blue-200/80";
+    case "River Women":
+      return "bg-rose-50 text-rose-600 border-rose-200/80";
+    case "Seasoned":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200/80";
+    default:
+      return "bg-slate-100 text-slate-700 border-slate-200";
+  }
 }
 
 interface VipsClientProps {
@@ -325,7 +352,7 @@ export default function VipsTableClient({
         </form>
       </div>
 
-      {/* 2. Unified Filter Row (Age Pills + Service & Status Selects Inline) */}
+      {/* 2. Unified Filter Row */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar select-none">
         {AGE_GROUPS.map((age) => (
           <button
@@ -344,10 +371,8 @@ export default function VipsTableClient({
           </button>
         ))}
 
-        {/* Divider */}
         <div className="h-5 w-px bg-slate-200 shrink-0 mx-0.5" />
 
-        {/* Inline Service Dropdown */}
         <select
           value={selectedService}
           onChange={(e) => {
@@ -362,7 +387,6 @@ export default function VipsTableClient({
           <option value="4PM">4PM Service</option>
         </select>
 
-        {/* Inline Status Dropdown */}
         <select
           value={selectedStatus}
           onChange={(e) => {
@@ -374,8 +398,8 @@ export default function VipsTableClient({
           <option value="ALL">All Statuses</option>
           <option value="UNTEXTED">Pending SMS</option>
           <option value="TEXTED">Texted</option>
-          <option value="DISCIPLESHIP_YES">One2One: Yes</option>
-          <option value="DISCIPLESHIP_NO">One2One: No</option>
+          <option value="DISCIPLESHIP_YES">1-to-1: Yes</option>
+          <option value="DISCIPLESHIP_NO">1-to-1: No</option>
         </select>
       </div>
 
@@ -447,6 +471,7 @@ export default function VipsTableClient({
           data.map((item: any) => {
             const formattedPhone = formatPhilippineMobile(item.contact);
             const isStartedOne2One = Boolean(item.startedOne2One ?? item.startedOne2one);
+            const gender = getGenderInfo(item.gender);
             const singleSmsHref = formattedPhone
               ? `sms:${formattedPhone}${smsQueryPrefix}body=${encodedWelcomeBody}`
               : "#";
@@ -461,10 +486,10 @@ export default function VipsTableClient({
                   <div className="flex items-center gap-2.5">
                     <div
                       className={`h-8 w-8 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 shadow-sm ${
-                        item.gender === 1 ? "bg-blue-500" : "bg-rose-400"
+                        gender.isMale ? "bg-blue-500" : "bg-rose-400"
                       }`}
                     >
-                      {item.gender === 1 ? "M" : "F"}
+                      {gender.short}
                     </div>
                     <div>
                       <h3 className="font-extrabold text-sm text-[#111827] leading-tight">
@@ -485,7 +510,16 @@ export default function VipsTableClient({
 
                 {/* Info Badges */}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-orange-50 text-[#FF6B00] border border-orange-200/60">
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${
+                      gender.isMale
+                        ? "bg-blue-50 text-blue-600 border-blue-200/60"
+                        : "bg-rose-50 text-rose-500 border-rose-200/60"
+                    }`}
+                  >
+                    {gender.label}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${getAgeGroupBadgeStyle(item.ageGroup)}`}>
                     {item.ageGroup}
                   </span>
                   <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">
@@ -569,7 +603,7 @@ export default function VipsTableClient({
                         : "bg-slate-100 text-slate-500 border-slate-200"
                     }`}
                   >
-                    One2One: {isStartedOne2One ? "YES" : "NO"}
+                    1-to-1: {isStartedOne2One ? "YES" : "NO"}
                   </button>
                 </div>
               </div>
@@ -585,19 +619,20 @@ export default function VipsTableClient({
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <th className="py-4 px-5">VIP Name</th>
-                <th className="py-4 px-4">Age Group</th>
-                <th className="py-4 px-4">Service</th>
+                <th className="py-4 px-4 text-center">Gender</th>
+                <th className="py-4 px-4 text-center">Age Group</th>
+                <th className="py-4 px-4 text-center">Service</th>
                 <th className="py-4 px-5">Approached By</th>
                 <th className="py-4 px-5">Contact</th>
                 <th className="py-4 px-4 text-center">Texted</th>
-                <th className="py-4 px-4 text-center">One2One</th>
+                <th className="py-4 px-4 text-center">1-to-1</th>
                 <th className="py-4 px-4 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm font-medium">
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center text-slate-400 text-xs font-medium">
+                  <td colSpan={9} className="py-16 text-center text-slate-400 text-xs font-medium">
                     No VIP logs found for this month.
                   </td>
                 </tr>
@@ -605,6 +640,7 @@ export default function VipsTableClient({
                 data.map((item: any) => {
                   const formattedPhone = formatPhilippineMobile(item.contact);
                   const isStartedOne2One = Boolean(item.startedOne2One ?? item.startedOne2one);
+                  const gender = getGenderInfo(item.gender);
                   const singleSmsHref = formattedPhone
                     ? `sms:${formattedPhone}${smsQueryPrefix}body=${encodedWelcomeBody}`
                     : "#";
@@ -615,12 +651,12 @@ export default function VipsTableClient({
                         <div className="flex items-center gap-3">
                           <div
                             className={`h-9 w-9 rounded-xl flex items-center justify-center font-black text-xs text-white shadow-sm ${
-                              item.gender === 1
+                              gender.isMale
                                 ? "bg-blue-500 shadow-blue-500/20"
                                 : "bg-rose-400 shadow-rose-400/20"
                             }`}
                           >
-                            {item.gender === 1 ? "M" : "F"}
+                            {gender.short}
                           </div>
                           <div>
                             <div className="font-extrabold text-[#111827]">{item.fullName}</div>
@@ -635,14 +671,26 @@ export default function VipsTableClient({
                         </div>
                       </td>
 
-                      <td className="py-4 px-4">
-                        <span className="px-2.5 py-1 rounded-xl bg-orange-50 text-[#FF6B00] border border-orange-200/60 font-extrabold text-xs">
+                      <td className="py-4 px-4 text-center">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-xl font-extrabold text-xs border whitespace-nowrap ${
+                            gender.isMale
+                              ? "bg-blue-50 text-blue-600 border-blue-200/60"
+                              : "bg-rose-50 text-rose-500 border-rose-200/60"
+                          }`}
+                        >
+                          {gender.label}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-4 text-center">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-xl border font-black text-xs whitespace-nowrap ${getAgeGroupBadgeStyle(item.ageGroup)}`}>
                           {item.ageGroup}
                         </span>
                       </td>
 
-                      <td className="py-4 px-4">
-                        <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-extrabold text-xs">
+                      <td className="py-4 px-4 text-center">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-extrabold text-xs whitespace-nowrap">
                           {item.serviceAttended}
                         </span>
                       </td>
