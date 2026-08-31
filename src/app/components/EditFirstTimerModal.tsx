@@ -32,7 +32,7 @@ export default function EditFirstTimerModal({
   const [mounted, setMounted] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Form state
   const [fullName, setFullName] = useState(item.fullName || "");
@@ -78,7 +78,7 @@ export default function EditFirstTimerModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
+    setSuccessMessage(null);
 
     const payload = {
       id: String(item._id),
@@ -100,15 +100,15 @@ export default function EditFirstTimerModal({
     startTransition(async () => {
       const res = await updateFirstTimerAction(payload);
       if (res.success) {
-        setSuccess(true);
+        setSuccessMessage(res.message || "Updated successfully!");
         if (typeof onUpdate === "function") {
           onUpdate({ ...item, ...payload });
         }
         router.refresh();
         setTimeout(() => {
           setIsOpen(false);
-          setSuccess(false);
-        }, 700);
+          setSuccessMessage(null);
+        }, 900);
       } else {
         setError(res.error || "Failed to update record.");
       }
@@ -126,7 +126,7 @@ export default function EditFirstTimerModal({
         onClick={() => {
           setIsOpen(true);
           setError(null);
-          setSuccess(false);
+          setSuccessMessage(null);
         }}
         className="p-2 rounded-xl bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00] transition-colors"
         title="Edit Record"
@@ -164,15 +164,15 @@ export default function EditFirstTimerModal({
               </div>
             )}
 
-            {success && (
-              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-600 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" /> Updated successfully!
+            {successMessage && (
+              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-600 flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 shrink-0" /> {successMessage}
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4 text-left">
               
-              {/* Core Intake Profile (Locked for Follow-Up Team) */}
+              {/* Core Intake Profile */}
               <div className="space-y-4 relative">
                 {!canEditCoreDetails && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100/90 text-slate-500 text-[11px] font-bold">
@@ -327,7 +327,7 @@ export default function EditFirstTimerModal({
                 </div>
               </div>
 
-              {/* One2One Discipleship Section (Fully Editable for Follow-Up Team) */}
+              {/* One2One Discipleship Section */}
               <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-200/60 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-black text-[#FF6B00]">
                   <HeartHandshake className="w-4 h-4" /> One2One Discipleship & Texted Status

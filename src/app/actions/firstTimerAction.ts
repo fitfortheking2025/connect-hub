@@ -1,3 +1,4 @@
+// src/app/actions/firstTimerAction.ts
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -5,25 +6,17 @@ import dbConnect from "@/lib/mongodb";
 import { FirstTimer } from "@/models";
 import { auth } from "@/lib/auth";
 
-// Helper to normalize Philippine mobile numbers to 09XXXXXXXXX when provided
 function formatPhilippineContact(rawContact: string): string {
   if (!rawContact || !rawContact.trim()) return "";
   
-  // Strip all non-numeric characters
   let cleaned = rawContact.replace(/\D/g, "");
-
   if (!cleaned) return "";
 
-  // If starts with 63 (e.g. 639060979218), remove 63 and prepend 0
   if (cleaned.startsWith("63") && cleaned.length >= 12) {
     cleaned = "0" + cleaned.slice(2);
-  }
-  // If starts with 9 (e.g. 9060979218), prepend 0 -> 09060979218
-  else if (cleaned.startsWith("9") && cleaned.length === 10) {
+  } else if (cleaned.startsWith("9") && cleaned.length === 10) {
     cleaned = "0" + cleaned;
-  }
-  // If already starts with 0 (e.g. 09060979218), keep as is
-  else if (!cleaned.startsWith("0")) {
+  } else if (!cleaned.startsWith("0")) {
     cleaned = "0" + cleaned;
   }
 
@@ -46,7 +39,6 @@ export async function createFirstTimerAction(formData: FormData) {
     const lifeGroupInterest = formData.get("lifeGroupInterest") as string;
     const approachedBy = formData.get("approachedBy") as string;
 
-    // Contact is now optional, only verifying essential core identity
     if (!fullName || !iam || !ageGroup || !serviceAttended || !approachedBy) {
       return { success: false, error: "Please fill in all required fields." };
     }
@@ -73,7 +65,10 @@ export async function createFirstTimerAction(formData: FormData) {
     revalidatePath("/");
     revalidatePath("/intake");
 
-    return { success: true };
+    return { 
+      success: true, 
+      message: `Successfully registered ${fullName.trim()} into First-Timers roster.` 
+    };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to submit intake." };
   }
@@ -96,18 +91,29 @@ export async function toggleDiscipleshipStatusAction(
       }
     }
 
-    await FirstTimer.findByIdAndUpdate(id, updateData);
+    const updated = await FirstTimer.findByIdAndUpdate(id, updateData, { new: true });
     revalidatePath("/vips");
+    revalidatePath("/analytics");
+    revalidatePath("/dashboard");
     revalidatePath("/", "layout");
-    return { success: true, followedUpBy: updateData.followedUpBy };
+
+    const label = field === "textedAlready" 
+      ? (value ? "marked as texted" : "marked as pending SMS")
+      : (value ? "marked One2One as started" : "marked One2One as not started");
+
+    return { 
+      success: true, 
+      followedUpBy: updateData.followedUpBy,
+      message: `${updated?.fullName || "VIP"} ${label}.`
+    };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message || "Failed to update status." };
   }
 }
 
 export async function markBatchAsTextedAction(ids: string[]) {
   try {
-    if (!ids || ids.length === 0) return { success: true };
+    if (!ids || ids.length === 0) return { success: true, message: "No VIPs to update." };
     const session = await auth();
     await dbConnect();
 
@@ -119,18 +125,25 @@ export async function markBatchAsTextedAction(ids: string[]) {
       }
     }
 
-    await FirstTimer.updateMany({ _id: { $in: ids } }, { $set: updateData });
+    const res = await FirstTimer.updateMany({ _id: { $in: ids } }, { $set: updateData });
     revalidatePath("/vips");
+    revalidatePath("/analytics");
+    revalidatePath("/dashboard");
     revalidatePath("/", "layout");
-    return { success: true };
+
+    return { 
+      success: true, 
+      message: `Successfully marked ${res.modifiedCount || ids.length} VIP(s) as texted.` 
+    };
   } catch (error: any) {
-    return { success: false, error: error.message || "Failed to mark batch." };
+    return { success: false, error: error.message || "Failed to mark batch as texted." };
   }
 }
 
 export async function updateFirstTimerAction(data: {
   id: string;
   fullName: string;
+  gender?: number | string;
   contact?: string;
   messenger?: string;
   iam?: string;
@@ -154,10 +167,16 @@ export async function updateFirstTimerAction(data: {
     const updaterName = session?.user?.name || session?.user?.email || "Follow-Up Team";
     const updaterId = (session?.user as any)?.id || null;
 
+    const parsedGender =
+      data.gender === 1 || data.gender === "1" || String(data.gender).toUpperCase() === "MALE" || String(data.gender).toUpperCase() === "M"
+        ? 1
+        : 0;
+
     const updated = await FirstTimer.findByIdAndUpdate(
       data.id,
       {
         fullName: data.fullName?.trim(),
+        gender: parsedGender,
         contact: data.contact?.trim(),
         messenger: data.messenger?.trim(),
         iam: data.iam,
@@ -180,10 +199,13 @@ export async function updateFirstTimerAction(data: {
     }
 
     revalidatePath("/vips");
+    revalidatePath("/analytics");
+    revalidatePath("/dashboard");
     revalidatePath("/", "layout");
 
     return {
       success: true,
+      message: `Changes saved for ${updated.fullName}.`,
       updated: JSON.parse(JSON.stringify(updated)),
     };
   } catch (error: any) {
@@ -196,7 +218,6 @@ export async function deleteFirstTimerAction(id: string) {
     const session = await auth();
     const userRole = String((session?.user as any)?.role || "").toUpperCase();
 
-    // Strict Admin Gate
     if (userRole !== "ADMIN") {
       return { success: false, error: "Unauthorized. Only Admins can delete VIP records." };
     }
@@ -212,7 +233,10 @@ export async function deleteFirstTimerAction(id: string) {
     revalidatePath("/dashboard");
     revalidatePath("/analytics");
 
-    return { success: true };
+    return { 
+      success: true, 
+      message: `Permanently removed "${deleted.fullName}" from records.` 
+    };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to delete VIP record." };
   }

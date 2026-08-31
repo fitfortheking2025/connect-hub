@@ -23,7 +23,6 @@ import {
   ClipboardCopy,
   Trash2,
   AlertTriangle,
-  X,
   Loader2
 } from "lucide-react";
 import { 
@@ -135,6 +134,16 @@ export default function VipsTableClient({
   const [copiedBatch, setCopiedBatch] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Global Notification Toast
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((current) => (current === msg ? null : current));
+    }, 3000);
+  };
+
   // Custom Delete Modal State
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -214,6 +223,7 @@ export default function VipsTableClient({
       year: safeYear,
       records: connectedMembers,
     });
+    showToast(`Exported ${connectedMembers.length} connected members to PDF.`);
   };
 
   const handleExportPhoneNumbersExcel = () => {
@@ -240,12 +250,14 @@ export default function VipsTableClient({
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Contacts");
     XLSX.writeFile(workbook, `VIP_Phone_Numbers_${MONTHS[safeMonth - 1]}_${safeYear}.xlsx`);
+    showToast(`Exported ${exportRows.length} phone numbers to Excel.`);
   };
 
   const handleUpdateItem = (updatedItem: any) => {
     setData((prev) =>
       prev.map((item) => (item._id === updatedItem._id ? updatedItem : item))
     );
+    showToast(`Updated ${updatedItem.fullName}.`);
   };
 
   const handleConfirmDelete = async () => {
@@ -253,6 +265,7 @@ export default function VipsTableClient({
     setIsDeleting(true);
 
     const targetId = itemToDelete.id;
+    const targetName = itemToDelete.name;
     setData((prev) => prev.filter((item) => item._id !== targetId));
 
     startTransition(async () => {
@@ -260,7 +273,9 @@ export default function VipsTableClient({
       setIsDeleting(false);
       setItemToDelete(null);
 
-      if (!res.success) {
+      if (res.success) {
+        showToast(res.message || `Deleted "${targetName}".`);
+      } else {
         alert(res.error || "Failed to delete record.");
         router.refresh();
       }
@@ -273,7 +288,10 @@ export default function VipsTableClient({
     );
 
     startTransition(async () => {
-      await toggleDiscipleshipStatusAction(id, field, !currentVal);
+      const res = await toggleDiscipleshipStatusAction(id, field, !currentVal);
+      if (res.success && res.message) {
+        showToast(res.message);
+      }
       router.refresh();
     });
   };
@@ -301,6 +319,7 @@ export default function VipsTableClient({
 
     await navigator.clipboard.writeText(details);
     setCopiedId(String(item._id));
+    showToast(`Copied ${item.fullName}'s details to clipboard.`);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -308,6 +327,7 @@ export default function VipsTableClient({
     if (untextedPhoneNumbers.length === 0) return;
     await navigator.clipboard.writeText(untextedPhoneNumbers.join(", "));
     setCopiedBatch(true);
+    showToast(`Copied ${untextedPhoneNumbers.length} phone numbers.`);
     setTimeout(() => setCopiedBatch(false), 2000);
   };
 
@@ -320,7 +340,10 @@ export default function VipsTableClient({
     );
 
     startTransition(async () => {
-      await markBatchAsTextedAction(ids);
+      const res = await markBatchAsTextedAction(ids);
+      if (res.success && res.message) {
+        showToast(res.message);
+      }
       router.refresh();
     });
   };
@@ -334,6 +357,7 @@ export default function VipsTableClient({
 
     await navigator.clipboard.writeText(untextedPhoneNumbers.join(", "));
     setCopiedBatch(true);
+    showToast(`Numbers copied! Opening messaging app...`);
     setTimeout(() => setCopiedBatch(false), 3000);
 
     const bulkSmsUrl = `sms:${smsQueryPrefix}body=${encodedWelcomeBody}`;
@@ -341,8 +365,18 @@ export default function VipsTableClient({
   };
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-3.5 relative">
       
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md text-white shadow-2xl border border-slate-700/60 text-xs font-bold">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
+
       {/* 1. Month Navigator & Search Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-3">
         
@@ -872,7 +906,7 @@ export default function VipsTableClient({
                               type="button"
                               onClick={() => setItemToDelete({ id: item._id, name: item.fullName })}
                               disabled={isPending}
-                              className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors active:scale-95"
+                              className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
                               title="Delete VIP Record (Admin Only)"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -894,7 +928,6 @@ export default function VipsTableClient({
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-sm bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200 shadow-2xl p-6 space-y-4 animate-in zoom-in-95 text-center">
             
-            {/* Warning Icon Shield */}
             <div className="mx-auto w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200/60 flex items-center justify-center text-rose-600 shadow-lg shadow-rose-500/10">
               <AlertTriangle className="w-7 h-7" />
             </div>
