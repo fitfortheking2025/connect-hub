@@ -105,6 +105,7 @@ interface VipsClientProps {
   selectedMonth: number;
   teamMembers: any[];
   canExportPdf?: boolean;
+  canEditCoreDetails?: boolean;
 }
 
 export default function VipsTableClient({
@@ -114,6 +115,7 @@ export default function VipsTableClient({
   selectedMonth,
   teamMembers,
   canExportPdf = false,
+  canEditCoreDetails = false
 }: VipsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -398,8 +400,8 @@ export default function VipsTableClient({
           <option value="ALL">All Statuses</option>
           <option value="UNTEXTED">Pending SMS</option>
           <option value="TEXTED">Texted</option>
-          <option value="DISCIPLESHIP_YES">1-to-1: Yes</option>
-          <option value="DISCIPLESHIP_NO">1-to-1: No</option>
+          <option value="DISCIPLESHIP_YES">One2One: Yes</option>
+          <option value="DISCIPLESHIP_NO">One2One: No</option>
         </select>
       </div>
 
@@ -603,7 +605,7 @@ export default function VipsTableClient({
                         : "bg-slate-100 text-slate-500 border-slate-200"
                     }`}
                   >
-                    1-to-1: {isStartedOne2One ? "YES" : "NO"}
+                    One2One: {isStartedOne2One ? "YES" : "NO"}
                   </button>
                 </div>
               </div>
@@ -625,7 +627,7 @@ export default function VipsTableClient({
                 <th className="py-4 px-5">Approached By</th>
                 <th className="py-4 px-5">Contact</th>
                 <th className="py-4 px-4 text-center">Texted</th>
-                <th className="py-4 px-4 text-center">1-to-1</th>
+                <th className="py-4 px-4 text-center">One2One</th>
                 <th className="py-4 px-4 text-center">Action</th>
               </tr>
             </thead>
@@ -756,7 +758,7 @@ export default function VipsTableClient({
                       </td>
 
                       <td className="py-4 px-4 text-center">
-                        <EditFirstTimerModal item={item} teamMembers={teamMembers} onUpdate={handleUpdateItem} />
+                        <EditFirstTimerModal item={item} teamMembers={teamMembers} onUpdate={handleUpdateItem} canEditCoreDetails={canExportPdf || canEditCoreDetails}/>
                       </td>
                     </tr>
                   );

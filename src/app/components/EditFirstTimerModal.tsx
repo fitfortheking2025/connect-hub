@@ -1,3 +1,4 @@
+// src/app/components/EditFirstTimerModal.tsx
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
@@ -8,17 +9,24 @@ import {
   Pencil, 
   CheckCircle2, 
   Loader2, 
-  HeartHandshake
+  HeartHandshake,
+  Lock
 } from "lucide-react";
 import { updateFirstTimerAction } from "@/app/actions/firstTimerAction";
 
 interface EditModalProps {
   item: any;
   teamMembers: any[];
+  canEditCoreDetails?: boolean;
   onUpdate?: (updatedItem: any) => void;
 }
 
-export default function EditFirstTimerModal({ item, teamMembers, onUpdate }: EditModalProps) {
+export default function EditFirstTimerModal({ 
+  item, 
+  teamMembers, 
+  canEditCoreDetails = false,
+  onUpdate 
+}: EditModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -26,8 +34,11 @@ export default function EditFirstTimerModal({ item, teamMembers, onUpdate }: Edi
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Form state reading exact schema fields
+  // Form state
   const [fullName, setFullName] = useState(item.fullName || "");
+  const [gender, setGender] = useState<number>(
+    Number(item.gender) === 1 || String(item.gender).toUpperCase() === "MALE" || String(item.gender).toUpperCase() === "M" ? 1 : 0
+  );
   const [contact, setContact] = useState(item.contact || "");
   const [messenger, setMessenger] = useState(item.messenger || "");
   const [iam, setIam] = useState(item.iam || "VISITOR");
@@ -48,6 +59,9 @@ export default function EditFirstTimerModal({ item, teamMembers, onUpdate }: Edi
 
   useEffect(() => {
     setFullName(item.fullName || "");
+    setGender(
+      Number(item.gender) === 1 || String(item.gender).toUpperCase() === "MALE" || String(item.gender).toUpperCase() === "M" ? 1 : 0
+    );
     setContact(item.contact || "");
     setMessenger(item.messenger || "");
     setIam(item.iam || "VISITOR");
@@ -69,6 +83,7 @@ export default function EditFirstTimerModal({ item, teamMembers, onUpdate }: Edi
     const payload = {
       id: String(item._id),
       fullName,
+      gender,
       contact,
       messenger,
       iam,
@@ -99,6 +114,10 @@ export default function EditFirstTimerModal({ item, teamMembers, onUpdate }: Edi
       }
     });
   };
+
+  const readOnlyInputClass = !canEditCoreDetails
+    ? "bg-slate-100/70 border-slate-200 text-slate-600 cursor-not-allowed select-none"
+    : "bg-slate-50 border-slate-200 text-[#111827] focus:border-[#FF6B00]";
 
   return (
     <>
@@ -153,113 +172,162 @@ export default function EditFirstTimerModal({ item, teamMembers, onUpdate }: Edi
 
             <form onSubmit={handleSubmit} className="space-y-4 text-left">
               
-              {/* Name & Service */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full Name</label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                  />
+              {/* Core Intake Profile (Locked for Follow-Up Team) */}
+              <div className="space-y-4 relative">
+                {!canEditCoreDetails && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100/90 text-slate-500 text-[11px] font-bold">
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                    Intake profile details are managed by Leadership
+                  </div>
+                )}
+
+                {/* Name & Gender */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full Name</label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      disabled={!canEditCoreDetails}
+                      required
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold focus:outline-none ${readOnlyInputClass}`}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gender</label>
+                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        disabled={!canEditCoreDetails}
+                        onClick={() => canEditCoreDetails && setGender(1)}
+                        className={`py-2 rounded-xl text-xs font-black transition-all border ${
+                          gender === 1
+                            ? "bg-blue-500 text-white border-blue-500 shadow-sm shadow-blue-500/25"
+                            : "bg-slate-50 text-slate-500 border-slate-200"
+                        } ${!canEditCoreDetails ? "cursor-not-allowed opacity-80" : "hover:bg-slate-100"}`}
+                      >
+                        Male
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canEditCoreDetails}
+                        onClick={() => canEditCoreDetails && setGender(0)}
+                        className={`py-2 rounded-xl text-xs font-black transition-all border ${
+                          gender !== 1
+                            ? "bg-rose-500 text-white border-rose-500 shadow-sm shadow-rose-500/25"
+                            : "bg-slate-50 text-slate-500 border-slate-200"
+                        } ${!canEditCoreDetails ? "cursor-not-allowed opacity-80" : "hover:bg-slate-100"}`}
+                      >
+                        Female
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Service</label>
-                  <select
-                    value={serviceAttended}
-                    onChange={(e) => setServiceAttended(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                  >
-                    <option value="10AM">10AM Service</option>
-                    <option value="1PM">1PM Service</option>
-                    <option value="4PM">4PM Service</option>
-                  </select>
-                </div>
-              </div>
+                {/* Service & Category */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Service Attended</label>
+                    <select
+                      value={serviceAttended}
+                      onChange={(e) => setServiceAttended(e.target.value)}
+                      disabled={!canEditCoreDetails}
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold focus:outline-none ${readOnlyInputClass}`}
+                    >
+                      <option value="10AM">10AM Service</option>
+                      <option value="1PM">1PM Service</option>
+                      <option value="4PM">4PM Service</option>
+                    </select>
+                  </div>
 
-              {/* Contact & Messenger */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact Number</label>
-                  <input
-                    type="text"
-                    value={contact}
-                    onChange={(e) => setContact(e.target.value)}
-                    placeholder="0917XXXXXXX"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                  />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</label>
+                    <select
+                      value={iam}
+                      onChange={(e) => setIam(e.target.value)}
+                      disabled={!canEditCoreDetails}
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold focus:outline-none ${readOnlyInputClass}`}
+                    >
+                      <option value="VISITOR">Visitor</option>
+                      <option value="LOOKING FOR A CHURCH">Looking for a Church</option>
+                      <option value="FROM OTHER CHURCH">From Other Church</option>
+                    </select>
+                  </div>
                 </div>
 
+                {/* Age Group & Contact */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Age Group</label>
+                    <select
+                      value={ageGroup}
+                      onChange={(e) => setAgeGroup(e.target.value)}
+                      disabled={!canEditCoreDetails}
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold focus:outline-none ${readOnlyInputClass}`}
+                    >
+                      <option value="Youth">Youth</option>
+                      <option value="Young Adult">Young Adult</option>
+                      <option value="River Men">River Men</option>
+                      <option value="River Women">River Women</option>
+                      <option value="Seasoned">Seasoned</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact Number</label>
+                    <input
+                      type="text"
+                      value={contact}
+                      onChange={(e) => setContact(e.target.value)}
+                      disabled={!canEditCoreDetails}
+                      placeholder="0917XXXXXXX"
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold focus:outline-none ${readOnlyInputClass}`}
+                    />
+                  </div>
+                </div>
+
+                {/* Messenger */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">FB / Messenger</label>
                   <input
                     type="text"
                     value={messenger}
                     onChange={(e) => setMessenger(e.target.value)}
+                    disabled={!canEditCoreDetails}
                     placeholder="Profile name or link"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                  />
-                </div>
-              </div>
-
-              {/* Category & Age Group */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</label>
-                  <select
-                    value={iam}
-                    onChange={(e) => setIam(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                  >
-                    <option value="VISITOR">Visitor</option>
-                    <option value="LOOKING FOR A CHURCH">Looking for a Church</option>
-                    <option value="FROM OTHER CHURCH">From Other Church</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Age Group</label>
-                  <select
-                    value={ageGroup}
-                    onChange={(e) => setAgeGroup(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                  >
-                    <option value="Youth">Youth</option>
-                    <option value="Young Adult">Young Adult</option>
-                    <option value="River Men">River Men</option>
-                    <option value="River Women">River Women</option>
-                    <option value="Seasoned">Seasoned</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Approached By & Invited By */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approached By</label>
-                  <input
-                    type="text"
-                    value={approachedBy}
-                    onChange={(e) => setApproachedBy(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold focus:outline-none ${readOnlyInputClass}`}
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Invited By</label>
-                  <input
-                    type="text"
-                    value={invitedBy}
-                    onChange={(e) => setInvitedBy(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                  />
+                {/* Approached By & Invited By */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approached By</label>
+                    <input
+                      type="text"
+                      value={approachedBy}
+                      onChange={(e) => setApproachedBy(e.target.value)}
+                      disabled={!canEditCoreDetails}
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold focus:outline-none ${readOnlyInputClass}`}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Invited By</label>
+                    <input
+                      type="text"
+                      value={invitedBy}
+                      onChange={(e) => setInvitedBy(e.target.value)}
+                      disabled={!canEditCoreDetails}
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold focus:outline-none ${readOnlyInputClass}`}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* One2One Discipleship Section */}
+              {/* One2One Discipleship Section (Fully Editable for Follow-Up Team) */}
               <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-200/60 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-black text-[#FF6B00]">
                   <HeartHandshake className="w-4 h-4" /> One2One Discipleship & Texted Status

@@ -99,6 +99,7 @@ export default async function VipsPage({ searchParams }: PageProps) {
         selectedMonth={selectedMonth}
         teamMembers={JSON.parse(JSON.stringify(teamMembers))}
         canExportPdf={canExportPdf}
+        canEditCoreDetails={canExportPdf}
       />
     </div>
   );
