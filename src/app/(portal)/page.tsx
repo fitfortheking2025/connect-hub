@@ -11,7 +11,10 @@ import {
   Phone, 
   MessageSquare,
   UserCheck,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
+  Flame,
+  Activity
 } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -25,99 +28,105 @@ export default async function DashboardPage() {
     FirstTimer.countDocuments({ startedOne2One: true }),
   ]);
 
-  // Dynamic Connect Team statistics
   const totalTeam = teamMembers.length;
   const leadersCount = teamMembers.filter((m) => m.groupName === "Team Leaders").length;
   const membersCount = teamMembers.filter((m) => m.groupName !== "Team Leaders").length;
-
-  const conversionRate = totalVips > 0 ? ((discipleshipCount / totalVips) * 100).toFixed(1) : "0";
+  const conversionRate = totalVips > 0 ? ((discipleshipCount / totalVips) * 100).toFixed(0) : "0";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       
-      {/* 1. Header Banner (Cleaned without Export Button) */}
-      <div className="bg-white rounded-[32px] border border-slate-200/80 p-6 sm:p-8 flex flex-col justify-between gap-4 shadow-sm">
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-black text-[#111827] tracking-tight">
-            Welcome to <span className="text-[#FF6B00]">Connect Hub</span>
+      {/* 1. Header Banner */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-[#FF6B00] text-[10px] sm:text-[11px] font-bold">
+            <Sparkles className="w-3 h-3" /> Ministry Live
+          </div>
+          <h1 className="text-xl sm:text-3xl font-black text-[#111827] tracking-tight mt-1">
+            Ministry <span className="text-[#FF6B00]">Dashboard</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Live telemetry for first-timer Sunday intakes, discipleship funnels, and approaching leaders.
-          </p>
         </div>
+
+        <Link
+          href="/intake"
+          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black shadow-md shadow-orange-500/20 transition-all active:scale-95 shrink-0"
+        >
+          <Sparkles className="w-3.5 h-3.5" /> 
+          <span className="hidden xs:inline">Sunday</span> Intake
+        </Link>
       </div>
 
-      {/* 2. Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 2. 2-Column Compact Metric Grid for Mobile */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
         
         {/* Total Logged */}
-        <div className="bg-white rounded-[28px] border border-slate-200/80 p-5 space-y-3 shadow-sm">
+        <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1.5 sm:space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Logged</span>
-            <div className="p-2.5 rounded-2xl bg-orange-50 text-[#FF6B00]">
-              <Users className="w-4 h-4" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Total</span>
+            <div className="p-1.5 sm:p-2.5 rounded-xl bg-orange-50 text-[#FF6B00]">
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
           <div>
-            <div className="text-3xl font-black text-[#111827]">
-              {totalVips} <span className="text-xs font-semibold text-slate-400">visitors</span>
+            <div className="text-xl sm:text-3xl font-black text-[#111827] tracking-tight">
+              {totalVips}
             </div>
-            <p className="text-[11px] font-bold text-[#FF6B00] mt-1 flex items-center gap-1">
-              <ArrowUpRight className="w-3.5 h-3.5" /> 100% Sunday intake
+            <p className="text-[10px] sm:text-[11px] font-bold text-[#FF6B00] mt-0.5 flex items-center gap-0.5">
+              <ArrowUpRight className="w-3 h-3" /> 100% intake
             </p>
           </div>
         </div>
 
-        {/* Discipleship */}
-        <div className="bg-white rounded-[28px] border border-slate-200/80 p-5 space-y-3 shadow-sm">
+        {/* 1-to-1 Discipleship */}
+        <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1.5 sm:space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Discipleship</span>
-            <div className="p-2.5 rounded-2xl bg-emerald-50 text-emerald-600">
-              <HeartHandshake className="w-4 h-4" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">1-to-1</span>
+            <div className="p-1.5 sm:p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
+              <HeartHandshake className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
           <div>
-            <div className="text-3xl font-black text-[#111827]">
-              {discipleshipCount} <span className="text-xs font-semibold text-slate-400">in 1-to-1</span>
+            <div className="text-xl sm:text-3xl font-black text-[#111827] tracking-tight">
+              {discipleshipCount}
             </div>
-            <p className="text-[11px] font-bold text-emerald-600 mt-1">
-              {conversionRate}% Conversion Rate
+            <p className="text-[10px] sm:text-[11px] font-bold text-emerald-600 mt-0.5 flex items-center gap-0.5">
+              <Activity className="w-3 h-3" /> {conversionRate}% rate
             </p>
           </div>
         </div>
 
         {/* Connect Team */}
-        <div className="bg-white rounded-[28px] border border-slate-200/80 p-5 space-y-3 shadow-sm">
+        <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1.5 sm:space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Connect Team</span>
-            <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-600">
-              <ShieldCheck className="w-4 h-4" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Team</span>
+            <div className="p-1.5 sm:p-2.5 rounded-xl bg-blue-50 text-blue-600">
+              <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
           <div>
-            <div className="text-3xl font-black text-[#111827]">
-              {totalTeam} <span className="text-xs font-semibold text-slate-400">members</span>
+            <div className="text-xl sm:text-3xl font-black text-[#111827] tracking-tight">
+              {totalTeam}
             </div>
-            <p className="text-[11px] font-bold text-slate-500 mt-1">
-              {leadersCount} Leaders • {membersCount} Members
+            <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 mt-0.5 truncate">
+              {leadersCount} Lead • {membersCount} Mbrs
             </p>
           </div>
         </div>
 
-        {/* Top Service */}
-        <div className="bg-white rounded-[28px] border border-slate-200/80 p-5 space-y-3 shadow-sm">
+        {/* Peak Service */}
+        <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1.5 sm:space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Top Service</span>
-            <div className="p-2.5 rounded-2xl bg-amber-50 text-amber-600">
-              <Clock className="w-4 h-4" />
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Peak</span>
+            <div className="p-1.5 sm:p-2.5 rounded-xl bg-amber-50 text-amber-600">
+              <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           </div>
           <div>
-            <div className="text-xl font-black text-[#111827] mt-1">
-              10AM & 4PM
+            <div className="text-base sm:text-2xl font-black text-[#111827] mt-0.5 tracking-tight truncate">
+              10AM / 4PM
             </div>
-            <p className="text-[11px] font-bold text-amber-600 mt-2">
-              Peak attendance times
+            <p className="text-[10px] sm:text-[11px] font-bold text-amber-600 mt-0.5">
+              Peak Sunday
             </p>
           </div>
         </div>
@@ -125,31 +134,26 @@ export default async function DashboardPage() {
       </div>
 
       {/* 3. Recent VIP Logs */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-[#111827]">VIP Logs</h2>
-              <span className="px-2 py-0.5 rounded-full bg-orange-50 text-[#FF6B00] border border-orange-200/60 text-[10px] font-extrabold">
-                Live Data
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 font-medium mt-0.5">
-              Direct Sunday service entries & discipleship status
-            </p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base sm:text-xl font-black text-[#111827] tracking-tight">VIP Logs</h2>
+            <span className="px-2 py-0.5 rounded-full bg-orange-50 text-[#FF6B00] border border-orange-200/60 text-[10px] font-extrabold">
+              Live
+            </span>
           </div>
 
           <Link
             href="/vips"
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black text-[#FF6B00] hover:bg-orange-50 hover:border-orange-200 transition-all shadow-sm"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-slate-200/80 text-xs font-bold text-slate-700 hover:text-[#FF6B00] transition-all shadow-sm active:scale-95"
           >
             <span>View All</span>
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-3.5 h-3.5 text-[#FF6B00]" />
           </Link>
         </div>
 
         {/* Mobile Cards */}
-        <div className="md:hidden space-y-3">
+        <div className="md:hidden space-y-2.5">
           {vips.length === 0 ? (
             <div className="bg-white rounded-[24px] border border-slate-200/80 p-8 text-center text-slate-400 text-xs font-medium">
               No recent VIP records found.
@@ -161,13 +165,13 @@ export default async function DashboardPage() {
               return (
                 <div
                   key={item._id.toString()}
-                  className="bg-white rounded-[24px] border border-slate-200/80 p-4 shadow-sm space-y-3"
+                  className="bg-white rounded-[20px] border border-slate-200/80 p-3.5 shadow-sm space-y-2.5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
                       <div
-                        className={`h-9 w-9 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 ${
-                          item.gender === 1 ? "bg-blue-500 shadow-blue-500/20" : "bg-rose-400 shadow-rose-400/20"
+                        className={`h-8 w-8 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 ${
+                          item.gender === 1 ? "bg-blue-500" : "bg-rose-400"
                         }`}
                       >
                         {item.gender === 1 ? "M" : "F"}
@@ -181,14 +185,13 @@ export default async function DashboardPage() {
                           {new Date(item.createdAt).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
-                            year: "numeric",
                           })}
                         </div>
                       </div>
                     </div>
 
                     <span
-                      className={`px-2.5 py-1 rounded-xl text-[10px] font-extrabold border shrink-0 ${
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold border shrink-0 ${
                         isStartedOne2One
                           ? "bg-emerald-50 text-emerald-600 border-emerald-300"
                           : "bg-slate-100 text-slate-500 border-slate-200"
@@ -200,24 +203,24 @@ export default async function DashboardPage() {
 
                   <div className="flex flex-wrap items-center gap-1.5">
                     {item.ageGroup && (
-                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-orange-50 text-[#FF6B00] border border-orange-200/60">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-orange-50 text-[#FF6B00] border border-orange-200/60">
                         {item.ageGroup}
                       </span>
                     )}
                     {item.serviceAttended && (
-                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">
                         {item.serviceAttended}
                       </span>
                     )}
                     {item.iam && (
-                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-500">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500">
                         {item.iam}
                       </span>
                     )}
                   </div>
 
-                  <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 space-y-1">
-                    <div className="flex items-center justify-between">
+                  <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2 border border-slate-100 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
                       <span className="text-[10px] uppercase font-bold text-slate-400">Approached by</span>
                       <span className="font-extrabold text-[#111827]">{item.approachedBy}</span>
                     </div>
@@ -228,25 +231,25 @@ export default async function DashboardPage() {
                       </div>
                     )}
                     {item.followedUpBy && (
-                      <div className="flex items-center justify-between text-[11px] text-indigo-700 pt-1 border-t border-slate-200/60 font-semibold">
-                        <span className="text-[10px] uppercase font-bold text-indigo-500 flex items-center gap-1">
-                          <UserCheck className="w-3 h-3" /> Updated By
+                      <div className="flex items-center justify-between text-[10px] text-indigo-700 pt-1 border-t border-slate-200/60 font-semibold">
+                        <span className="text-[9px] uppercase font-bold text-indigo-500 flex items-center gap-1">
+                          <UserCheck className="w-2.5 h-2.5" /> Updated By
                         </span>
-                        <span className="bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] text-indigo-700 border border-indigo-200/60">
+                        <span className="bg-indigo-50 px-1 py-0.5 rounded text-[9px] text-indigo-700 border border-indigo-200/60">
                           {item.followedUpBy}
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
                     {item.contact ? (
-                      <div className="flex-1 flex items-center gap-1.5 py-2 px-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs font-mono">
-                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      <div className="flex-1 flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs font-mono">
+                        <Phone className="w-3 h-3 text-emerald-600" />
                         {item.contact}
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-300 italic px-2">No contact</span>
+                      <span className="text-xs text-slate-300 italic px-1">No contact</span>
                     )}
 
                     {item.messenger && (
@@ -254,9 +257,9 @@ export default async function DashboardPage() {
                         href={item.messenger.startsWith("http") ? item.messenger : `https://m.me/${item.messenger}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors shrink-0"
+                        className="p-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors shrink-0"
                       >
-                        <MessageSquare className="w-4 h-4" />
+                        <MessageSquare className="w-3.5 h-3.5" />
                       </a>
                     )}
                   </div>
