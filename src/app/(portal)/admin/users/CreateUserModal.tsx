@@ -1,3 +1,4 @@
+// src/app/(portal)/admin/users/CreateUserModal.tsx
 "use client";
 
 import { useState, useTransition } from "react";
@@ -39,62 +40,63 @@ export default function CreateUserModal({
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-xs shadow-lg shadow-orange-500/25 transition-all active:scale-95"
+        className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-black text-xs shadow-md shadow-orange-500/20 transition-all active:scale-95 shrink-0"
       >
-        <Plus className="w-4 h-4" /> Create New Account
+        <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
+        <span>Add Account</span>
       </button>
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg bg-white rounded-[32px] border border-slate-200 shadow-2xl p-6 sm:p-8 space-y-5 animate-in zoom-in-95">
+          <div className="w-full max-w-lg bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200 shadow-2xl p-5 sm:p-7 space-y-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-2xl bg-orange-50 text-[#FF6B00] border border-orange-200">
-                  <UserPlus className="w-5 h-5" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-orange-50 text-[#FF6B00] border border-orange-200/60">
+                  <UserPlus className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-[#111827]">Create Leader Account</h2>
-                  <p className="text-xs text-slate-500 font-medium">Provision portal credentials</p>
+                  <h2 className="text-base sm:text-lg font-black text-[#111827]">Create Leader Account</h2>
+                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium">Provision portal credentials</p>
                 </div>
               </div>
 
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {error && (
-              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600">
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
               
               {/* Full Name */}
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Full Name *
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     name="fullName"
                     required
                     placeholder="e.g. Frank Balboa"
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-sm text-[#111827] focus:outline-none focus:border-[#FF6B00] focus:bg-white"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
                   />
                 </div>
               </div>
 
               {/* Username */}
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Username *
                 </label>
                 <input
@@ -103,34 +105,34 @@ export default function CreateUserModal({
                   required
                   autoCapitalize="none"
                   placeholder="e.g. frank_b"
-                  className="w-full px-4 py-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-sm text-[#111827] focus:outline-none focus:border-[#FF6B00] focus:bg-white font-mono text-xs"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] font-mono"
                 />
               </div>
 
-              {/* Automatic Default Password (Hidden form value + visual indicator) */}
+              {/* Default Password Notice */}
               <input type="hidden" name="password" value="connect2026" />
               
-              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/60 space-y-1">
+              <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/60 space-y-0.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-amber-600" /> Default Password
+                  <span className="text-[10px] font-bold text-amber-900 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-amber-600" /> Default Password
                   </span>
-                  <span className="font-mono text-xs font-black px-2.5 py-0.5 rounded-lg bg-white border border-amber-200 text-amber-900 shadow-sm">
+                  <span className="font-mono text-[11px] font-black px-2 py-0.5 rounded-md bg-white border border-amber-200 text-amber-900">
                     connect2026
                   </span>
                 </div>
-                <p className="text-[10px] text-amber-700 font-medium">
-                  Automatically applied upon account creation. Users can update this in their profile settings.
+                <p className="text-[9px] text-amber-700 font-medium">
+                  Applied upon creation. Users can update this in profile settings.
                 </p>
               </div>
 
               {/* Role Selection */}
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Role Permission *
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-orange-50/50 has-[:checked]:border-[#FF6B00] has-[:checked]:bg-orange-50">
+                  <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-orange-50/50 has-[:checked]:border-[#FF6B00] has-[:checked]:bg-orange-50">
                     <input
                       type="radio"
                       name="role"
@@ -140,11 +142,11 @@ export default function CreateUserModal({
                     />
                     <div>
                       <div className="text-xs font-bold text-[#111827]">Team Leader</div>
-                      <div className="text-[10px] text-slate-400">Manage queues</div>
+                      <div className="text-[9px] text-slate-400">Manage queues</div>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-orange-50/50 has-[:checked]:border-[#FF6B00] has-[:checked]:bg-orange-50">
+                  <label className="flex items-center gap-2 p-2.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-orange-50/50 has-[:checked]:border-[#FF6B00] has-[:checked]:bg-orange-50">
                     <input
                       type="radio"
                       name="role"
@@ -152,8 +154,8 @@ export default function CreateUserModal({
                       className="text-[#FF6B00] focus:ring-[#FF6B00]"
                     />
                     <div>
-                      <div className="text-xs font-bold text-[#111827]">Follow Up Team</div>
-                      <div className="text-[10px] text-slate-400">1-on-1 discipleship</div>
+                      <div className="text-xs font-bold text-[#111827]">Follow Up</div>
+                      <div className="text-[9px] text-slate-400">Discipleship</div>
                     </div>
                   </label>
                 </div>
@@ -161,15 +163,15 @@ export default function CreateUserModal({
 
               {/* Link to Team Member */}
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
-                  <span>Link to Roster Member</span>
-                  <span className="text-slate-400 font-normal lowercase text-[10px]">(optional)</span>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                  <span>Link to Roster</span>
+                  <span className="text-slate-400 font-normal text-[9px]">(optional)</span>
                 </label>
                 <select
                   name="teamMemberId"
-                  className="w-full px-4 py-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#FF6B00] focus:bg-white"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#FF6B00]"
                 >
-                  <option value="">-- No Roster Member Linked --</option>
+                  <option value="">-- No Roster Linked --</option>
                   {teamMembers.map((m) => (
                     <option key={m._id} value={m._id}>
                       {m.name} ({m.groupName})
@@ -178,21 +180,21 @@ export default function CreateUserModal({
                 </select>
               </div>
 
-              {/* Submit CTA */}
-              <div className="pt-2 flex gap-2">
+              {/* Submit Action */}
+              <div className="pt-1 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="w-1/3 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+                  className="w-1/3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="w-2/3 py-3.5 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-xs shadow-lg shadow-orange-500/25 flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="w-2/3 py-2.5 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-xs shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
-                  {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Credentials"}
+                  {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Create Account"}
                 </button>
               </div>
 

@@ -1,3 +1,4 @@
+// src/app/(portal)/admin/users/page.tsx
 import { redirect } from "next/navigation";
 import dbConnect from "@/lib/mongodb";
 import { User, TeamMember } from "@/models";
@@ -27,30 +28,27 @@ export default async function AdminUsersPage() {
   ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-[#FF6B00] text-[11px] font-bold">
-            <KeyRound className="w-3.5 h-3.5" /> Security & Account Provisioning
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-orange-50 border border-orange-200 text-[#FF6B00] text-[10px] sm:text-[11px] font-bold">
+            <KeyRound className="w-3 h-3" /> Security & Access
           </div>
-          <h1 className="text-2xl md:text-3xl font-black text-[#111827] tracking-tight mt-1.5">
-            Ministry Leader Accounts
+          <h1 className="text-xl sm:text-3xl font-black text-[#111827] tracking-tight mt-1">
+            Leader <span className="text-[#FF6B00]">Accounts</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Manage system access for Team Leaders and Follow-Up Team ministers.
-          </p>
         </div>
 
         {/* Trigger Modal to Create User */}
         <CreateUserModal teamMembers={JSON.parse(JSON.stringify(teamMembers))} />
       </div>
 
-      {/* 1. Mobile Cards View (Hidden on Desktop) */}
-      <div className="md:hidden space-y-3">
+      {/* 1. Mobile Cards View */}
+      <div className="md:hidden space-y-2.5">
         {users.length === 0 ? (
-          <div className="bg-white rounded-[24px] border border-slate-200/80 p-8 text-center text-slate-400 text-xs font-medium">
+          <div className="bg-white rounded-[20px] border border-slate-200/80 p-8 text-center text-slate-400 text-xs font-medium">
             No leader accounts found.
           </div>
         ) : (
@@ -60,12 +58,12 @@ export default async function AdminUsersPage() {
             return (
               <div
                 key={u._id.toString()}
-                className="bg-white rounded-[24px] border border-slate-200/80 p-4 shadow-sm space-y-3"
+                className="bg-white rounded-[20px] border border-slate-200/80 p-3.5 shadow-sm space-y-2.5"
               >
                 {/* Header: Avatar, Name, Created Date & Role Badge */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-[#FF6B00] to-amber-400 text-white font-black flex items-center justify-center text-xs shadow-sm shadow-orange-500/20 shrink-0">
+                    <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-[#FF6B00] to-amber-400 text-white font-black flex items-center justify-center text-xs shadow-sm shadow-orange-500/20 shrink-0">
                       {u.fullName?.charAt(0).toUpperCase() || "U"}
                     </div>
                     <div>
@@ -85,7 +83,7 @@ export default async function AdminUsersPage() {
 
                   {/* System Role Badge */}
                   <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-extrabold border shrink-0 ${
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-extrabold border shrink-0 ${
                       u.role === "ADMIN"
                         ? "bg-rose-50 text-rose-600 border-rose-200/60"
                         : u.role === "TEAM_LEADER"
@@ -93,40 +91,40 @@ export default async function AdminUsersPage() {
                         : "bg-blue-50 text-blue-600 border-blue-200/60"
                     }`}
                   >
-                    <Shield className="w-3 h-3" />
+                    <Shield className="w-2.5 h-2.5" />
                     {roleFormatted}
                   </span>
                 </div>
 
                 {/* Linked Roster Details Card */}
-                <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 space-y-1">
-                  <div className="flex items-center justify-between">
+                <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2 border border-slate-100 space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
                     <span className="text-[10px] uppercase font-bold text-slate-400">Linked Minister</span>
                     {u.teamMemberId ? (
                       <span className="font-extrabold text-[#111827] flex items-center gap-1">
-                        <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <UserCheck className="w-3 h-3 text-emerald-600" />
                         {u.teamMemberId.name}
                       </span>
                     ) : (
-                      <span className="text-slate-400 italic text-[11px]">Not Linked</span>
+                      <span className="text-slate-400 italic text-[10px]">Not Linked</span>
                     )}
                   </div>
                   {u.teamMemberId?.groupName && (
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 font-semibold pt-1 border-t border-slate-200/60">
-                      <span className="text-[10px] uppercase font-bold text-slate-400">Group:</span>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold pt-1 border-t border-slate-200/60">
+                      <span className="uppercase font-bold text-slate-400 text-[9px]">Group:</span>
                       <span>{u.teamMemberId.groupName}</span>
                     </div>
                   )}
                 </div>
 
-                {/* Username Bottom Pill */}
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <div className="flex-1 flex items-center gap-1.5 py-2 px-3 rounded-xl bg-slate-100 text-slate-700 font-mono font-bold text-xs">
-                    <AtSign className="w-3.5 h-3.5 text-[#FF6B00]" />
+                {/* Username Bottom Row */}
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <div className="flex-1 flex items-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-slate-100 text-slate-700 font-mono font-bold text-xs">
+                    <AtSign className="w-3 h-3 text-[#FF6B00]" />
                     {u.username}
                   </div>
 
-                  <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/60 text-[10px] font-extrabold shrink-0">
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200/60 text-[10px] font-extrabold shrink-0">
                     Active
                   </span>
                 </div>
@@ -136,7 +134,7 @@ export default async function AdminUsersPage() {
         )}
       </div>
 
-      {/* 2. Desktop Data Table (Hidden on Mobile) */}
+      {/* 2. Desktop Data Table */}
       <div className="hidden md:block bg-white rounded-[32px] border border-slate-200/80 shadow-xl shadow-slate-200/40 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
