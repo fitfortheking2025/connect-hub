@@ -259,15 +259,15 @@ export default function EditFirstTimerModal({ item, teamMembers, onUpdate }: Edi
                 </div>
               </div>
 
-              {/* 1-to-1 Discipleship Section */}
+              {/* One2One Discipleship Section */}
               <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-200/60 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-black text-[#FF6B00]">
-                  <HeartHandshake className="w-4 h-4" /> 1-to-1 Discipleship & Texted Status
+                  <HeartHandshake className="w-4 h-4" /> One2One Discipleship & Texted Status
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">1-to-1 Started</label>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">One2One Started</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"

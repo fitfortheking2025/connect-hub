@@ -58,7 +58,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
             Ministry Analytics
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Track Sunday intake trends, 1-to-1 conversion funnels, and age demographics over custom date ranges.
+            Track Sunday intake trends, One2One conversion funnels, and age demographics over custom date ranges.
           </p>
         </div>
       </div>

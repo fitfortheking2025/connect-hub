@@ -123,7 +123,7 @@ FirstTimerSchema.index({
 // 2. Compound index for Service Date + Service Slot filtering and sorting
 FirstTimerSchema.index({ createdAt: -1, serviceAttended: 1 });
 
-// 3. Compound index for Discipleship pipeline analytics (e.g., all visitors in 10AM who started 1-to-1)
+// 3. Compound index for Discipleship pipeline analytics (e.g., all visitors in 10AM who started One2One)
 FirstTimerSchema.index({ serviceAttended: 1, startedOne2One: 1 });
 
 // 4. Compound index for Follow-Up Team tracking queues

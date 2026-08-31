@@ -87,7 +87,7 @@ export default async function VipsPage({ searchParams }: PageProps) {
             VIPs & First-Timers
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Filter by month and age bracket, broadcast SMS, and track 1-to-1 discipleship.
+            Filter by month and age bracket, broadcast SMS, and track One2One discipleship.
           </p>
         </div>
       </div>

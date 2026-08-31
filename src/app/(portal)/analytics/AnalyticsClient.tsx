@@ -249,10 +249,10 @@ export default function AnalyticsClient({
           </div>
         </div>
 
-        {/* 1-to-1 Discipleship */}
+        {/* One2One Discipleship */}
         <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1.5 sm:space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">1-to-1 Disc.</span>
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">One2One Disc.</span>
             <div className="p-1.5 sm:p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
               <HeartHandshake className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
@@ -296,7 +296,7 @@ export default function AnalyticsClient({
             </div>
             <div>
               <h3 className="font-black text-[#111827] text-sm sm:text-base">Intake & Discipleship Over Time</h3>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium">Daily attendance spikes vs 1-to-1 discipleship started</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 font-medium">Daily attendance spikes vs One2One discipleship started</p>
             </div>
           </div>
 
@@ -307,7 +307,7 @@ export default function AnalyticsClient({
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span className="text-slate-600">1-to-1 Started</span>
+              <span className="text-slate-600">One2One Started</span>
             </div>
           </div>
         </div>
@@ -359,7 +359,7 @@ export default function AnalyticsClient({
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#themeGreen)"
-                  name="1-to-1 Discipleship"
+                  name="One2One Discipleship"
                 />
               </AreaChart>
             </ResponsiveContainer>
