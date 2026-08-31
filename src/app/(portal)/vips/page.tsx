@@ -23,7 +23,7 @@ export default async function VipsPage({ searchParams }: PageProps) {
   const userRole = String(user?.role || "").toUpperCase();
 
   // Role Gate: Only ADMIN and TEAM LEADER can export the VIPs PDF
-  const canExportPdf = userRole === "ADMIN" || userRole === "TEAM LEADER";
+  const canExportPdf = userRole === "ADMIN" || userRole === "TEAM_LEADER";
 
   const params = await searchParams;
   const now = new Date();

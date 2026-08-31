@@ -18,7 +18,7 @@ import {
   CheckCheck,
   CheckCircle2,
   UserCheck,
-  Download,
+  FileText,
   FileSpreadsheet
 } from "lucide-react";
 import { toggleDiscipleshipStatusAction, markBatchAsTextedAction } from "@/app/actions/firstTimerAction";
@@ -115,7 +115,7 @@ export default function VipsTableClient({
   selectedMonth,
   teamMembers,
   canExportPdf = false,
-  canEditCoreDetails = false
+  canEditCoreDetails = false,
 }: VipsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -319,7 +319,7 @@ export default function VipsTableClient({
                   className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] text-xs font-bold transition-all border border-orange-200/60 shadow-sm flex items-center gap-1.5"
                   title="Export Monthly Connected PDF"
                 >
-                  <Download className="w-4 h-4" />
+                  <FileText className="w-4 h-4 text-[#FF6B00]" />
                   <span className="hidden lg:inline">PDF ({connectedMembers.length})</span>
                 </button>
               </>
@@ -507,7 +507,12 @@ export default function VipsTableClient({
                     </div>
                   </div>
 
-                  <EditFirstTimerModal item={item} teamMembers={teamMembers} onUpdate={handleUpdateItem} />
+                  <EditFirstTimerModal 
+                    item={item} 
+                    teamMembers={teamMembers} 
+                    canEditCoreDetails={canExportPdf || canEditCoreDetails}
+                    onUpdate={handleUpdateItem} 
+                  />
                 </div>
 
                 {/* Info Badges */}
@@ -758,7 +763,12 @@ export default function VipsTableClient({
                       </td>
 
                       <td className="py-4 px-4 text-center">
-                        <EditFirstTimerModal item={item} teamMembers={teamMembers} onUpdate={handleUpdateItem} canEditCoreDetails={canExportPdf || canEditCoreDetails}/>
+                        <EditFirstTimerModal 
+                          item={item} 
+                          teamMembers={teamMembers} 
+                          canEditCoreDetails={canExportPdf || canEditCoreDetails}
+                          onUpdate={handleUpdateItem} 
+                        />
                       </td>
                     </tr>
                   );
