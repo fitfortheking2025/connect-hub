@@ -115,7 +115,7 @@ export async function createStaffUserAction(formData: FormData) {
     await dbConnect();
 
     const username = (formData.get("username") as string)?.toLowerCase().trim();
-    const password = formData.get("password") as string;
+    const password = "connect2026";
     const fullName = formData.get("fullName") as string;
     const role = formData.get("role") as "TEAM_LEADER" | "FOLLOW_UP_TEAM";
     const teamMemberId = formData.get("teamMemberId") as string;

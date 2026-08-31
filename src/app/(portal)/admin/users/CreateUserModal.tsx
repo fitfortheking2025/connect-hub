@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, X, UserPlus, Key, Shield, User, Loader2 } from "lucide-react";
+import { Plus, X, UserPlus, Shield, User, Loader2, Lock } from "lucide-react";
 import { createStaffUserAction } from "@/app/actions/authActions";
 
 interface TeamMemberOption {
@@ -41,7 +41,7 @@ export default function CreateUserModal({
         onClick={() => setIsOpen(true)}
         className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-xs shadow-lg shadow-orange-500/25 transition-all active:scale-95"
       >
-        <Plus className="w-4 h-4" /> Provision New Account
+        <Plus className="w-4 h-4" /> Create New Account
       </button>
 
       {isOpen && (
@@ -92,37 +92,36 @@ export default function CreateUserModal({
                 </div>
               </div>
 
-              {/* Username & Password */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Username *
-                  </label>
-                  <input
-                    type="text"
-                    name="username"
-                    required
-                    autoCapitalize="none"
-                    placeholder="e.g. frank_b"
-                    className="w-full px-4 py-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-sm text-[#111827] focus:outline-none focus:border-[#FF6B00] focus:bg-white font-mono text-xs"
-                  />
-                </div>
+              {/* Username */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Username *
+                </label>
+                <input
+                  type="text"
+                  name="username"
+                  required
+                  autoCapitalize="none"
+                  placeholder="e.g. frank_b"
+                  className="w-full px-4 py-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-sm text-[#111827] focus:outline-none focus:border-[#FF6B00] focus:bg-white font-mono text-xs"
+                />
+              </div>
 
-                <div className="space-y-1">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Password *
-                  </label>
-                  <div className="relative">
-                    <Key className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="password"
-                      name="password"
-                      required
-                      placeholder="Min. 6 chars"
-                      className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-sm text-[#111827] focus:outline-none focus:border-[#FF6B00] focus:bg-white"
-                    />
-                  </div>
+              {/* Automatic Default Password (Hidden form value + visual indicator) */}
+              <input type="hidden" name="password" value="connect2026" />
+              
+              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/60 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-amber-600" /> Default Password
+                  </span>
+                  <span className="font-mono text-xs font-black px-2.5 py-0.5 rounded-lg bg-white border border-amber-200 text-amber-900 shadow-sm">
+                    connect2026
+                  </span>
                 </div>
+                <p className="text-[10px] text-amber-700 font-medium">
+                  Automatically applied upon account creation. Users can update this in their profile settings.
+                </p>
               </div>
 
               {/* Role Selection */}
