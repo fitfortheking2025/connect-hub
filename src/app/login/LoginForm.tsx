@@ -61,7 +61,7 @@ export default function LoginForm() {
 
           <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-black text-[#111827] tracking-tight">
-              Leader Sign In
+              Connect Hub
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium">
               Access the Connect Ministry dashboard & follow-ups
