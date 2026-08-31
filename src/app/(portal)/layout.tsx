@@ -8,6 +8,7 @@ import ChangePasswordModal from "@/app/components/ChangePasswordModal";
 import MobileUserDrawer from "@/app/components/MobileUserDrawer";
 import BottomNavBar from "@/app/components/BottomNavbar";
 import SidebarNav from "@/app/components/SidebarNav";
+import PullToRefresh from "@/app/components/PullToRefresh";
 
 export default async function PortalLayout({
   children,
@@ -100,9 +101,12 @@ export default async function PortalLayout({
           <MobileUserDrawer user={user} isAdmin={isAdmin} />
         </header>
 
-        <main className="p-4 sm:p-6 lg:p-8 flex-1 max-w-7xl w-full mx-auto pb-24 md:pb-8">
-          {children}
-        </main>
+        {/* PullToRefresh Wrapper */}
+        <PullToRefresh>
+          <main className="p-4 sm:p-6 lg:p-8 flex-1 max-w-7xl w-full mx-auto pb-28 md:pb-8">
+            {children}
+          </main>
+        </PullToRefresh>
 
         {/* Pass isAdmin to BottomNavBar */}
         <BottomNavBar isAdmin={isAdmin} />

@@ -106,7 +106,7 @@ export default function ApproachedByAutocomplete({
             </div>
             <div>
               <div className="text-sm font-bold text-[#111827]">{value}</div>
-              <div className="text-[10px] font-semibold text-[#FF6B00]">Connect Minister</div>
+              <div className="text-[10px] font-semibold text-[#FF6B00]">Connect Member</div>
             </div>
           </div>
           <button
