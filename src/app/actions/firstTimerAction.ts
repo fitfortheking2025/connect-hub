@@ -190,3 +190,30 @@ export async function updateFirstTimerAction(data: {
     return { success: false, error: error.message || "Failed to update record." };
   }
 }
+
+export async function deleteFirstTimerAction(id: string) {
+  try {
+    const session = await auth();
+    const userRole = String((session?.user as any)?.role || "").toUpperCase();
+
+    // Strict Admin Gate
+    if (userRole !== "ADMIN") {
+      return { success: false, error: "Unauthorized. Only Admins can delete VIP records." };
+    }
+
+    await dbConnect();
+    const deleted = await FirstTimer.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return { success: false, error: "Record not found." };
+    }
+
+    revalidatePath("/vips");
+    revalidatePath("/dashboard");
+    revalidatePath("/analytics");
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to delete VIP record." };
+  }
+}

@@ -1,3 +1,4 @@
+// src/app/(portal)/vips/page.tsx
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { FirstTimer, TeamMember } from "@/models";
@@ -22,8 +23,8 @@ export default async function VipsPage({ searchParams }: PageProps) {
   const user = session?.user as any;
   const userRole = String(user?.role || "").toUpperCase();
 
-  // Role Gate: Only ADMIN and TEAM LEADER can export the VIPs PDF
-  const canExportPdf = userRole === "ADMIN" || userRole === "TEAM_LEADER";
+  const isAdmin = userRole === "ADMIN";
+  const canExportPdf = isAdmin || userRole === "TEAM_LEADER" || userRole === "TEAM LEADER";
 
   const params = await searchParams;
   const now = new Date();
@@ -100,6 +101,7 @@ export default async function VipsPage({ searchParams }: PageProps) {
         teamMembers={JSON.parse(JSON.stringify(teamMembers))}
         canExportPdf={canExportPdf}
         canEditCoreDetails={canExportPdf}
+        isAdmin={isAdmin}
       />
     </div>
   );

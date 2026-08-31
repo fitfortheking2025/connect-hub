@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
 import { 
@@ -19,9 +20,17 @@ import {
   UserCheck,
   FileText,
   FileSpreadsheet,
-  ClipboardCopy
+  ClipboardCopy,
+  Trash2,
+  AlertTriangle,
+  X,
+  Loader2
 } from "lucide-react";
-import { toggleDiscipleshipStatusAction, markBatchAsTextedAction } from "@/app/actions/firstTimerAction";
+import { 
+  toggleDiscipleshipStatusAction, 
+  markBatchAsTextedAction,
+  deleteFirstTimerAction
+} from "@/app/actions/firstTimerAction";
 import EditFirstTimerModal from "@/app/components/EditFirstTimerModal";
 import { exportConnectedMembersPdf } from "@/lib/exportConnectedPdf";
 
@@ -106,6 +115,7 @@ interface VipsClientProps {
   teamMembers: any[];
   canExportPdf?: boolean;
   canEditCoreDetails?: boolean;
+  isAdmin?: boolean;
 }
 
 export default function VipsTableClient({
@@ -116,14 +126,24 @@ export default function VipsTableClient({
   teamMembers,
   canExportPdf = false,
   canEditCoreDetails = false,
+  isAdmin = false,
 }: VipsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [mounted, setMounted] = useState(false);
   const [copiedBatch, setCopiedBatch] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Custom Delete Modal State
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const [data, setData] = useState(initialData);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setData(initialData);
@@ -226,6 +246,25 @@ export default function VipsTableClient({
     setData((prev) =>
       prev.map((item) => (item._id === updatedItem._id ? updatedItem : item))
     );
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete || !isAdmin) return;
+    setIsDeleting(true);
+
+    const targetId = itemToDelete.id;
+    setData((prev) => prev.filter((item) => item._id !== targetId));
+
+    startTransition(async () => {
+      const res = await deleteFirstTimerAction(targetId);
+      setIsDeleting(false);
+      setItemToDelete(null);
+
+      if (!res.success) {
+        alert(res.error || "Failed to delete record.");
+        router.refresh();
+      }
+    });
   };
 
   const handleToggleStatus = (id: string, field: "textedAlready" | "startedOne2One", currentVal: boolean) => {
@@ -511,7 +550,7 @@ export default function VipsTableClient({
                 key={item._id}
                 className="bg-white rounded-[20px] border border-slate-200/80 p-3.5 shadow-sm space-y-2.5"
               >
-                {/* Header: Name, Avatar, Date, Copy Details, Edit Action */}
+                {/* Header: Name, Avatar, Date, Copy Details, Edit, Delete Actions */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5">
                     <div
@@ -535,11 +574,11 @@ export default function VipsTableClient({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => handleCopySingleVipDetails(item)}
-                      className={`p-2 rounded-xl transition-all ${
+                      className={`p-1.5 sm:p-2 rounded-xl transition-all ${
                         isCopied
                           ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
                           : "bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00]"
@@ -555,6 +594,18 @@ export default function VipsTableClient({
                       canEditCoreDetails={canExportPdf || canEditCoreDetails}
                       onUpdate={handleUpdateItem} 
                     />
+
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setItemToDelete({ id: item._id, name: item.fullName })}
+                        disabled={isPending}
+                        className="p-1.5 sm:p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors active:scale-95"
+                        title="Delete VIP Record (Admin Only)"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -815,6 +866,18 @@ export default function VipsTableClient({
                             canEditCoreDetails={canExportPdf || canEditCoreDetails}
                             onUpdate={handleUpdateItem} 
                           />
+
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setItemToDelete({ id: item._id, name: item.fullName })}
+                              disabled={isPending}
+                              className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors active:scale-95"
+                              title="Delete VIP Record (Admin Only)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -825,6 +888,48 @@ export default function VipsTableClient({
           </table>
         </div>
       </div>
+
+      {/* 6. Custom Confirmation Delete Modal (Admin Only) */}
+      {itemToDelete && mounted && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200 shadow-2xl p-6 space-y-4 animate-in zoom-in-95 text-center">
+            
+            {/* Warning Icon Shield */}
+            <div className="mx-auto w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200/60 flex items-center justify-center text-rose-600 shadow-lg shadow-rose-500/10">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-[#111827]">Delete VIP Record?</h3>
+              <p className="text-xs text-slate-500 font-medium px-2">
+                Are you sure you want to permanently delete{" "}
+                <strong className="text-[#111827] font-extrabold">&ldquo;{itemToDelete.name}&rdquo;</strong>? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="pt-2 flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setItemToDelete(null)}
+                disabled={isDeleting}
+                className="w-1/2 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-all active:scale-95 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="w-1/2 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-md shadow-rose-600/25 flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Yes, Delete"}
+              </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );
