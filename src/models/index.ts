@@ -9,3 +9,4 @@ export type { ITeamMember, TeamGroup } from "./TeamMember";
 export type { IFirstTimer } from "./FirstTimer";
 export type { IContribution } from "./Contribution";
 export type { IExpense } from "./Expense";
+export type { ISundayAttendee, ISundaySchedule } from "./SundaySchedule";

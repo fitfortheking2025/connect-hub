@@ -7,14 +7,16 @@ import {
   Sparkles, 
   BarChart3, 
   Users,
-  ShieldCheck
+  ShieldCheck,
+  Calendar
 } from "lucide-react";
 
 interface SidebarNavProps {
   isAdmin?: boolean;
+  isAdminorTeamLeader?: boolean;
 }
 
-export default function SidebarNav({ isAdmin = false }: SidebarNavProps) {
+export default function SidebarNav({ isAdmin = false, isAdminorTeamLeader = false }: SidebarNavProps) {
   const pathname = usePathname();
 
   const links = [
@@ -22,6 +24,15 @@ export default function SidebarNav({ isAdmin = false }: SidebarNavProps) {
     { label: "VIPs & Follow-Up", href: "/vips", icon: Sparkles },
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
     { label: "Connect Team", href: "/connect-team", icon: Users },
+    ...(isAdminorTeamLeader
+      ? [
+          {
+            label: "Sunday Attendance",
+            href: "/sunday-schedule",
+            icon: Calendar,
+          },
+        ]
+      : []),
     ...(isAdmin
       ? [
           {

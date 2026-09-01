@@ -24,6 +24,7 @@ export default async function PortalLayout({
   const user = session.user as any;
   // Case-insensitive check to ensure 'admin' or 'ADMIN' works reliably
   const isAdmin = String(user?.role || "").toUpperCase() === "ADMIN";
+  const isAdminorTeamLeader = (String(user?.role || "").toUpperCase() === "ADMIN") || (String(user?.role || "").toUpperCase() === "TEAM_LEADER");
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row">
@@ -53,7 +54,7 @@ export default async function PortalLayout({
           </Link>
 
           {/* Pass isAdmin to SidebarNav */}
-          <SidebarNav isAdmin={isAdmin} />
+          <SidebarNav isAdmin={isAdmin} isAdminorTeamLeader={isAdminorTeamLeader} />
         </div>
 
         <div className="space-y-2 pt-4 border-t border-slate-100">
