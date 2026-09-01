@@ -94,13 +94,18 @@ export async function plotSundayServiceAction(payload: {
         };
       }
 
-      if (editToken && existing.editToken && existing.editToken !== editToken) {
+      // Strictly require matching passkey for any updates to an existing slot
+      const providedToken = String(editToken || "").trim().toUpperCase();
+      const storedToken = String(existing.editToken || "").trim().toUpperCase();
+
+      if (storedToken && providedToken !== storedToken) {
         return {
           success: false,
-          error: "Invalid edit passkey. Please check your token or ask your Team Leader.",
+          error: "Invalid or missing Edit Passkey. Please enter the passkey you received when booking.",
         };
       }
-      assignedToken = existing.editToken;
+
+      assignedToken = existing.editToken || generateEditToken(trimmedName);
     } else {
       assignedToken = generateEditToken(trimmedName);
     }
