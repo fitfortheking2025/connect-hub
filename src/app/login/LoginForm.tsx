@@ -1,3 +1,4 @@
+// src/app/login/LoginForm.tsx
 "use client";
 
 import { useState, useTransition } from "react";
@@ -11,6 +12,7 @@ import {
   ShieldCheck, 
   Loader2, 
   ClipboardPenLine,
+  Calendar,
   Eye,
   EyeOff
 } from "lucide-react";
@@ -123,8 +125,8 @@ export default function LoginForm() {
             </div>
           </div>
 
-          {/* Submit Action & Sunday Intake Link */}
-          <div className="pt-2 space-y-3">
+          {/* Submit Action */}
+          <div className="pt-2">
             <button
               type="submit"
               disabled={isPending}
@@ -140,23 +142,46 @@ export default function LoginForm() {
                 </>
               )}
             </button>
-
-            {/* Sunday Intake Link directly below Access Portal */}
-            <div className="text-center pt-1">
-              <Link
-                href="/intake"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#FF6B00] transition-colors group py-1"
-              >
-                <ClipboardPenLine className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#FF6B00] transition-colors" />
-                <span>Recording a visitor?</span>
-                <span className="font-bold text-[#FF6B00] group-hover:underline underline-offset-4">
-                  Sunday Intake Form →
-                </span>
-              </Link>
-            </div>
           </div>
 
         </form>
+
+        {/* Quick Public Links: Sunday Schedule & Visitor Intake */}
+        <div className="space-y-2 pt-1 border-t border-slate-100">
+          
+          {/* Sunday Attendance Board Link */}
+          <Link
+            target="_blank"
+            href="/schedule"
+            className="w-full p-3 rounded-2xl bg-[#FFF9F5] hover:bg-[#FFF3EB] border border-orange-200/70 flex items-center justify-between transition-all group active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-xl bg-orange-100/80 text-[#FF6B00] shrink-0">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <div className="text-xs font-black text-[#111827]">Sunday Attendance Board</div>
+                <div className="text-[10px] text-slate-500 font-medium">Plot your service time slot (No login needed)</div>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-[#FF6B00] transition-transform group-hover:translate-x-0.5 shrink-0" />
+          </Link>
+
+          {/* Sunday Intake Link */}
+          <div className="text-center pt-1">
+            <Link
+              href="/intake"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#FF6B00] transition-colors group py-1"
+            >
+              <ClipboardPenLine className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#FF6B00] transition-colors" />
+              <span>Recording a visitor?</span>
+              <span className="font-bold text-[#FF6B00] group-hover:underline underline-offset-4">
+                Sunday Intake Form →
+              </span>
+            </Link>
+          </div>
+
+        </div>
 
         {/* Security / Role Notice */}
         <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-200/80 flex items-center gap-2.5">

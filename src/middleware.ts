@@ -11,7 +11,12 @@ export default auth((req) => {
 
   const isAuthPage = nextUrl.pathname === "/login";
   const isPublicIntake = nextUrl.pathname.startsWith("/intake");
+  const isPublicSchedule = nextUrl.pathname.startsWith("/schedule");
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
+
+  if (isPublicSchedule) {
+    return NextResponse.next();
+  }
 
   if (isPublicIntake) {
     return NextResponse.next();
