@@ -1,3 +1,4 @@
+// src/app/schedule/page.tsx
 import { getSundayScheduleAction } from "@/app/actions/scheduleAction";
 import { getNextOrCurrentSunday } from "@/lib/sundayDate";
 import ScheduleClientView from "./ScheduleClientView";
@@ -18,14 +19,12 @@ export default async function SchedulePage({
   const teamMembers = res.success && res.teamMembers ? res.teamMembers : [];
 
   return (
-    <div className="min-h-screen bg-slate-50 py-6 px-3 sm:px-6">
-      <div className="max-w-xl mx-auto space-y-5">
-        <ScheduleClientView
-          initialSchedule={initialSchedule}
-          sundayDate={sundayDate}
-          teamMembers={teamMembers}
-        />
-      </div>
+    <div className="min-h-screen w-full bg-[#F8FAFC]">
+      <ScheduleClientView
+        initialSchedule={initialSchedule}
+        sundayDate={sundayDate}
+        teamMembers={teamMembers}
+      />
     </div>
   );
 }

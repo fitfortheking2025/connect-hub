@@ -1,18 +1,20 @@
 // src/app/schedule/ScheduleClientView.tsx
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { 
-  Users, 
   Calendar, 
   Clock, 
-  AlertCircle, 
+  UserCheck, 
   Lock, 
-  X,
-  Sparkles,
+  AlertCircle, 
+  CheckCircle2, 
+  KeyRound, 
   Loader2,
-  KeyRound,
-  UserCheck
+  X,
+  LogIn
 } from "lucide-react";
 import { formatSundayDateHuman } from "@/lib/sundayDate";
 import { plotSundayServiceAction } from "@/app/actions/scheduleAction";
@@ -25,8 +27,9 @@ interface Attendee {
   reason?: string;
   editToken: string;
   isLockedByLeader?: boolean;
-  assignedBy?: string;
 }
+
+type ServiceType = "10AM" | "1PM" | "4PM" | "NOT_ATTENDING";
 
 export default function ScheduleClientView({
   initialSchedule,
@@ -35,31 +38,19 @@ export default function ScheduleClientView({
 }: {
   initialSchedule: any;
   sundayDate: string;
-  teamMembers: Array<{ _id: string; name: string; groupName?: string }>;
+  teamMembers: Array<{ _id: string; name: string }>;
 }) {
   const [schedule, setSchedule] = useState(initialSchedule);
   const [isPending, startTransition] = useTransition();
 
-  // Local storage stored identity
-  const [savedIdentity, setSavedIdentity] = useState<{ name: string; token: string } | null>(null);
-
-  // Form State
+  // Booking Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedName, setSelectedName] = useState("");
-  const [selectedService, setSelectedService] = useState<"10AM" | "1PM" | "4PM" | "NOT_ATTENDING">("10AM");
+  const [selectedService, setSelectedService] = useState<ServiceType>("10AM");
   const [reason, setReason] = useState("");
-  const [passkeyInput, setPasskeyInput] = useState("");
+  const [editPasskey, setEditPasskey] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [newPasskeyNotice, setNewPasskeyNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("rog_connect_schedule_user");
-      if (stored) {
-        setSavedIdentity(JSON.parse(stored));
-      }
-    } catch {}
-  }, []);
+  const [successInfo, setSuccessInfo] = useState<{ message: string; editToken?: string } | null>(null);
 
   const attendees: Attendee[] = schedule?.attendees || [];
   const list10AM = attendees.filter((a) => a.service === "10AM");
@@ -67,33 +58,27 @@ export default function ScheduleClientView({
   const list4PM = attendees.filter((a) => a.service === "4PM");
   const listNotAttending = attendees.filter((a) => a.service === "NOT_ATTENDING");
 
-  const myBooking = attendees.find(
-    (a) => savedIdentity && a.name.toLowerCase() === savedIdentity.name.toLowerCase()
+  const existingAttendee = attendees.find(
+    (a) => a.name.toLowerCase() === selectedName.trim().toLowerCase()
   );
 
-  const openPlotModal = (presetName?: string) => {
+  const handleOpenModal = (presetService: ServiceType = "10AM") => {
     setError(null);
-    const targetName = presetName || savedIdentity?.name || "";
-    setSelectedName(targetName);
-
-    const existing = attendees.find((a) => a.name.toLowerCase() === targetName.toLowerCase());
-    if (existing) {
-      setSelectedService(existing.service);
-      setReason(existing.reason || "");
-      setPasskeyInput(savedIdentity?.token || "");
-    } else {
-      setSelectedService(list10AM.length < 8 ? "10AM" : list1PM.length < 8 ? "1PM" : "4PM");
-      setReason("");
-      setPasskeyInput("");
-    }
+    setSuccessInfo(null);
+    setSelectedService(presetService);
+    setReason("");
+    setEditPasskey("");
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const tokenToSend = passkeyInput || (savedIdentity?.name === selectedName ? savedIdentity?.token : undefined);
+    if (!selectedName) {
+      setError("Please choose your name from the team roster.");
+      return;
+    }
 
     startTransition(async () => {
       const res = await plotSundayServiceAction({
@@ -101,413 +86,411 @@ export default function ScheduleClientView({
         name: selectedName,
         service: selectedService,
         reason,
-        editToken: tokenToSend,
+        editToken: editPasskey,
       });
 
       if (res.success && res.attendee) {
-        const newIdent = { name: res.attendee.name, token: res.attendee.editToken };
-        localStorage.setItem("rog_connect_schedule_user", JSON.stringify(newIdent));
-        setSavedIdentity(newIdent);
-
-        // Update local state instantly
         setSchedule((prev: any) => {
-          const list = [...(prev?.attendees || [])];
-          const idx = list.findIndex((a) => a.name.toLowerCase() === res.attendee.name.toLowerCase());
+          const currentAttendees = [...(prev?.attendees || [])];
+          const idx = currentAttendees.findIndex(
+            (a) => a.name.toLowerCase() === res.attendee.name.toLowerCase()
+          );
+
           if (idx > -1) {
-            list[idx] = res.attendee;
+            currentAttendees[idx] = res.attendee;
           } else {
-            list.push(res.attendee);
+            currentAttendees.push(res.attendee);
           }
-          return { ...prev, attendees: list };
+
+          return { ...prev, attendees: currentAttendees };
         });
 
-        setNewPasskeyNotice(res.attendee.editToken);
-        setIsModalOpen(false);
+        setSuccessInfo({
+          message: res.message || "Successfully booked slot!",
+          editToken: res.editToken,
+        });
       } else {
-        setError(res.error || "Failed to save.");
+        setError(res.error || "Failed to book slot.");
       }
     });
   };
 
   return (
-    <div className="space-y-4">
+    <div className="min-h-screen w-full bg-[#F8FAFC] pb-24">
       
-      {/* Header Card */}
-      <div className="bg-white rounded-[28px] border border-slate-200/80 p-5 shadow-sm space-y-3">
-        <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#FF6B00]">
-          <Sparkles className="w-4 h-4" /> River of God Church
-        </div>
+      {/* Full-Width Header */}
+      <header className="w-full bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
+        <div className="w-full px-4 sm:px-8 lg:px-12 py-3.5 sm:py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="relative w-10 h-10 rounded-2xl overflow-hidden shadow-md shadow-orange-500/10 bg-white border border-slate-100 p-1 shrink-0">
+              <Image src="/connect-hub.png" alt="Connect Hub" fill className="object-contain p-1" priority />
+            </div>
+            <div>
+              <h1 className="font-black text-base sm:text-lg text-[#111827] tracking-tight leading-tight">
+                Connect Hub
+              </h1>
+              <p className="text-[11px] font-bold text-[#FF6B00]">Sunday Attendance Board</p>
+            </div>
+          </div>
 
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#111827]">
-            Sunday Attendance Plotting
-          </h1>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold mt-0.5">
-            <Calendar className="w-3.5 h-3.5 text-[#FF6B00]" />
-            {formatSundayDateHuman(sundayDate)}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shrink-0"
+            >
+              <LogIn className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>Login</span>
+            </Link>
+
+            <button
+              onClick={() => handleOpenModal("10AM")}
+              className="inline-flex items-center gap-1.5 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-extrabold shadow-md shadow-orange-500/20 transition-all active:scale-95 shrink-0"
+            >
+              <UserCheck className="w-4 h-4 shrink-0" />
+              <span>Plot My Slot</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Full-Width Responsive Container */}
+      <main className="w-full px-4 sm:px-8 lg:px-12 pt-6 sm:pt-8 space-y-6 sm:space-y-8">
+        
+        {/* Date & Policy Banner */}
+        <div className="w-full bg-white rounded-[24px] sm:rounded-[32px] border border-slate-200/80 p-5 sm:p-7 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 sm:p-3.5 rounded-2xl bg-orange-50 text-[#FF6B00] border border-orange-200/60 shrink-0">
+              <Calendar className="w-6 sm:w-7 h-6 sm:h-7" />
+            </div>
+            <div>
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                Scheduled Sunday Service
+              </span>
+              <h2 className="text-lg sm:text-2xl font-black text-[#111827] tracking-tight">
+                {formatSundayDateHuman(sundayDate)}
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-200/80 self-start sm:self-center">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="text-xs sm:text-sm font-bold text-slate-700 whitespace-nowrap">
+              8 Members Max Per Service
+            </span>
           </div>
         </div>
 
-        <p className="text-xs text-slate-500 leading-relaxed bg-orange-50/50 p-3 rounded-2xl border border-orange-200/60 font-medium">
-          Kindly note that we will only be allowing <strong>8 members</strong> per service to ensure balance and order in the team.
-        </p>
-
-        {/* User Card Recognition */}
-        {myBooking ? (
-          <div className="bg-slate-900 text-white p-3.5 rounded-2xl flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Your Booking</div>
-              <div className="text-sm font-extrabold flex items-center gap-1.5">
-                <UserCheck className="w-4 h-4 text-emerald-400" /> {myBooking.name}
-                <span className="text-xs font-bold text-[#FF6B00] bg-orange-500/20 px-2 py-0.5 rounded-lg border border-orange-500/30">
-                  {myBooking.service}
+        {/* 3 Service Cards Grid */}
+        <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 lg:gap-8 items-start">
+          
+          {/* 10:00 AM Column */}
+          <div className="w-full bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-5">
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 gap-2">
+                <div className="flex items-center gap-2 font-black text-slate-900 text-sm sm:text-base whitespace-nowrap truncate">
+                  <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>10:00 AM Service</span>
+                </div>
+                <span className={`text-[11px] font-extrabold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border whitespace-nowrap shrink-0 ${
+                  list10AM.length >= 8 
+                    ? "bg-rose-50 text-rose-600 border-rose-200" 
+                    : "bg-blue-50 text-blue-700 border-blue-200"
+                }`}>
+                  {list10AM.length} / 8 Filled
                 </span>
               </div>
+
+              <div className="space-y-2 min-h-[340px]">
+                {Array.from({ length: 8 }).map((_, i) => {
+                  const item = list10AM[i];
+                  return (
+                    <div
+                      key={i}
+                      className={`px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-between border transition-all ${
+                        item
+                          ? "bg-slate-50/80 border-slate-200 font-bold text-slate-800 shadow-2xs"
+                          : "bg-slate-50/30 border-dashed border-slate-200/70 text-slate-400 font-medium"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 truncate pr-2 w-full">
+                        <span className="text-slate-400 font-mono text-xs w-4 shrink-0">{i + 1}.</span>
+                        <span className="truncate text-slate-800 font-semibold">{item ? item.name : "Open Slot"}</span>
+                      </div>
+                      {item?.isLockedByLeader && (
+                        <span title="Locked by Leadership" className="text-orange-500 shrink-0">
+                          <Lock className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+
             <button
-              onClick={() => openPlotModal(myBooking.name)}
-              className="px-3 py-1.5 rounded-xl bg-white text-slate-900 text-xs font-black shadow hover:bg-slate-100 transition-all"
+              onClick={() => handleOpenModal("10AM")}
+              disabled={list10AM.length >= 8}
+              className="w-full py-2.5 sm:py-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-xs transition-colors disabled:opacity-40"
             >
-              Change
+              {list10AM.length >= 8 ? "Service Full" : "Book 10:00 AM Slot"}
             </button>
           </div>
-        ) : (
-          <button
-            onClick={() => openPlotModal()}
-            className="w-full py-3.5 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-black text-sm shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 transition-all active:scale-95"
-          >
-            <Users className="w-4 h-4" /> Plot My Sunday Service
-          </button>
-        )}
-      </div>
 
-      {/* Passkey Alert on Successful Save */}
-      {newPasskeyNotice && (
-        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl space-y-1 animate-in fade-in">
-          <div className="flex items-center justify-between text-xs font-black text-emerald-800">
-            <span className="flex items-center gap-1.5">
-              <KeyRound className="w-4 h-4 text-emerald-600" /> Saved! Multi-Device Passkey
-            </span>
-            <button onClick={() => setNewPasskeyNotice(null)}>
-              <X className="w-4 h-4 text-emerald-600" />
+          {/* 1:00 PM Column */}
+          <div className="w-full bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-5">
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 gap-2">
+                <div className="flex items-center gap-2 font-black text-slate-900 text-sm sm:text-base whitespace-nowrap truncate">
+                  <Clock className="w-4 h-4 text-[#FF6B00] shrink-0" />
+                  <span>1:00 PM Service</span>
+                </div>
+                <span className={`text-[11px] font-extrabold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border whitespace-nowrap shrink-0 ${
+                  list1PM.length >= 8 
+                    ? "bg-rose-50 text-rose-600 border-rose-200" 
+                    : "bg-orange-50 text-[#FF6B00] border-orange-200"
+                }`}>
+                  {list1PM.length} / 8 Filled
+                </span>
+              </div>
+
+              <div className="space-y-2 min-h-[340px]">
+                {Array.from({ length: 8 }).map((_, i) => {
+                  const item = list1PM[i];
+                  return (
+                    <div
+                      key={i}
+                      className={`px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-between border transition-all ${
+                        item
+                          ? "bg-slate-50/80 border-slate-200 font-bold text-slate-800 shadow-2xs"
+                          : "bg-slate-50/30 border-dashed border-slate-200/70 text-slate-400 font-medium"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 truncate pr-2 w-full">
+                        <span className="text-slate-400 font-mono text-xs w-4 shrink-0">{i + 1}.</span>
+                        <span className="truncate text-slate-800 font-semibold">{item ? item.name : "Open Slot"}</span>
+                      </div>
+                      {item?.isLockedByLeader && (
+                        <span title="Locked by Leadership" className="text-orange-500 shrink-0">
+                          <Lock className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleOpenModal("1PM")}
+              disabled={list1PM.length >= 8}
+              className="w-full py-2.5 sm:py-3 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] font-extrabold text-xs transition-colors disabled:opacity-40"
+            >
+              {list1PM.length >= 8 ? "Service Full" : "Book 1:00 PM Slot"}
             </button>
           </div>
-          <p className="text-[11px] text-emerald-700 font-medium">
-            If you change devices or open on a laptop later, your edit code is:{" "}
-            <strong className="font-mono font-black text-sm bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-900">
-              {newPasskeyNotice}
-            </strong>
-          </p>
-        </div>
-      )}
 
-      {/* Services Breakdown Cards */}
-      <div className="space-y-3">
-        
-        {/* 10 AM */}
-        <div className="bg-white rounded-[24px] border border-slate-200/80 p-4 shadow-sm space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 font-black text-sm text-[#111827]">
-              <Clock className="w-4 h-4 text-blue-600" /> 10:00 AM Service
-            </div>
-            <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
-              list10AM.length >= 8 
-                ? "bg-rose-50 text-rose-600 border-rose-200" 
-                : "bg-blue-50 text-blue-700 border-blue-200"
-            }`}>
-              {list10AM.length}/8 {list10AM.length >= 8 ? "FULL" : "Slots"}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {Array.from({ length: 8 }).map((_, i) => {
-              const attendee = list10AM[i];
-              return (
-                <div
-                  key={i}
-                  className={`p-2 rounded-xl text-xs flex items-center justify-between border ${
-                    attendee
-                      ? "bg-slate-50 border-slate-200/80 text-slate-800 font-bold"
-                      : "bg-slate-50/40 border-dashed border-slate-200 text-slate-300 font-medium"
-                  }`}
-                >
-                  <span className="truncate">
-                    {i + 1}. {attendee ? attendee.name : "Available"}
-                  </span>
-                  {attendee?.isLockedByLeader && <Lock className="w-3 h-3 text-orange-500 shrink-0" />}
+          {/* 4:00 PM Column */}
+          <div className="w-full bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200/80 p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-5">
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 gap-2">
+                <div className="flex items-center gap-2 font-black text-slate-900 text-sm sm:text-base whitespace-nowrap truncate">
+                  <Clock className="w-4 h-4 text-purple-600 shrink-0" />
+                  <span>4:00 PM Service</span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+                <span className={`text-[11px] font-extrabold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full border whitespace-nowrap shrink-0 ${
+                  list4PM.length >= 8 
+                    ? "bg-rose-50 text-rose-600 border-rose-200" 
+                    : "bg-purple-50 text-purple-700 border-purple-200"
+                }`}>
+                  {list4PM.length} / 8 Filled
+                </span>
+              </div>
 
-        {/* 1 PM */}
-        <div className="bg-white rounded-[24px] border border-slate-200/80 p-4 shadow-sm space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 font-black text-sm text-[#111827]">
-              <Clock className="w-4 h-4 text-[#FF6B00]" /> 1:00 PM Service
+              <div className="space-y-2 min-h-[340px]">
+                {Array.from({ length: 8 }).map((_, i) => {
+                  const item = list4PM[i];
+                  return (
+                    <div
+                      key={i}
+                      className={`px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm flex items-center justify-between border transition-all ${
+                        item
+                          ? "bg-slate-50/80 border-slate-200 font-bold text-slate-800 shadow-2xs"
+                          : "bg-slate-50/30 border-dashed border-slate-200/70 text-slate-400 font-medium"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 truncate pr-2 w-full">
+                        <span className="text-slate-400 font-mono text-xs w-4 shrink-0">{i + 1}.</span>
+                        <span className="truncate text-slate-800 font-semibold">{item ? item.name : "Open Slot"}</span>
+                      </div>
+                      {item?.isLockedByLeader && (
+                        <span title="Locked by Leadership" className="text-orange-500 shrink-0">
+                          <Lock className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
-              list1PM.length >= 8 
-                ? "bg-rose-50 text-rose-600 border-rose-200" 
-                : "bg-orange-50 text-[#FF6B00] border-orange-200"
-            }`}>
-              {list1PM.length}/8 {list1PM.length >= 8 ? "FULL" : "Slots"}
-            </span>
+
+            <button
+              onClick={() => handleOpenModal("4PM")}
+              disabled={list4PM.length >= 8}
+              className="w-full py-2.5 sm:py-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-extrabold text-xs transition-colors disabled:opacity-40"
+            >
+              {list4PM.length >= 8 ? "Service Full" : "Book 4:00 PM Slot"}
+            </button>
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {Array.from({ length: 8 }).map((_, i) => {
-              const attendee = list1PM[i];
-              return (
-                <div
-                  key={i}
-                  className={`p-2 rounded-xl text-xs flex items-center justify-between border ${
-                    attendee
-                      ? "bg-slate-50 border-slate-200/80 text-slate-800 font-bold"
-                      : "bg-slate-50/40 border-dashed border-slate-200 text-slate-300 font-medium"
-                  }`}
-                >
-                  <span className="truncate">
-                    {i + 1}. {attendee ? attendee.name : "Available"}
-                  </span>
-                  {attendee?.isLockedByLeader && <Lock className="w-3 h-3 text-orange-500 shrink-0" />}
-                </div>
-              );
-            })}
-          </div>
+
         </div>
 
-        {/* 4 PM */}
-        <div className="bg-white rounded-[24px] border border-slate-200/80 p-4 shadow-sm space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 font-black text-sm text-[#111827]">
-              <Clock className="w-4 h-4 text-purple-600" /> 4:00 PM Service
-            </div>
-            <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border ${
-              list4PM.length >= 8 
-                ? "bg-rose-50 text-rose-600 border-rose-200" 
-                : "bg-purple-50 text-purple-700 border-purple-200"
-            }`}>
-              {list4PM.length}/8 {list4PM.length >= 8 ? "FULL" : "Slots"}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {Array.from({ length: 8 }).map((_, i) => {
-              const attendee = list4PM[i];
-              return (
-                <div
-                  key={i}
-                  className={`p-2 rounded-xl text-xs flex items-center justify-between border ${
-                    attendee
-                      ? "bg-slate-50 border-slate-200/80 text-slate-800 font-bold"
-                      : "bg-slate-50/40 border-dashed border-slate-200 text-slate-300 font-medium"
-                  }`}
-                >
-                  <span className="truncate">
-                    {i + 1}. {attendee ? attendee.name : "Available"}
-                  </span>
-                  {attendee?.isLockedByLeader && <Lock className="w-3 h-3 text-orange-500 shrink-0" />}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Not Attending Section */}
+        {/* Not Attending / Excused List */}
         {listNotAttending.length > 0 && (
-          <div className="bg-white rounded-[24px] border border-slate-200/80 p-4 shadow-sm space-y-2">
-            <div className="text-xs font-black text-slate-500 uppercase tracking-wider">
-              Not Attending ({listNotAttending.length})
+          <div className="w-full bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200/80 p-5 sm:p-7 shadow-xs space-y-4">
+            <div className="font-extrabold text-xs text-slate-500 uppercase tracking-wider">
+              Not Attending / Excused ({listNotAttending.length})
             </div>
-            <div className="space-y-1.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {listNotAttending.map((a, i) => (
-                <div key={i} className="text-xs text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100 flex items-center justify-between">
-                  <span className="font-bold text-slate-800">{i + 1}. {a.name}</span>
-                  {a.reason && <span className="text-[11px] text-slate-400 italic">{a.reason}</span>}
+                <div key={i} className="px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs sm:text-sm">
+                  <div className="font-bold text-slate-800 truncate">{a.name}</div>
+                  <div className="text-[11px] text-slate-400 italic truncate mt-0.5">{a.reason || "Excused"}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-      </div>
+      </main>
 
-      {/* Interactive Modal */}
+      {/* Booking Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-white rounded-[28px] border border-slate-200 shadow-2xl p-6 space-y-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200 shadow-2xl p-6 sm:p-7 space-y-4 animate-in zoom-in-95">
             
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-black text-[#111827]">Plot Sunday Service</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-base sm:text-lg font-black text-[#111827]">Book Sunday Service Slot</h3>
+              <button 
+                onClick={() => setIsModalOpen(false)} 
+                className="p-1 rounded-xl text-slate-400 hover:bg-slate-100 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {error && (
-              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600 flex items-center gap-2">
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" /> {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-3.5">
-              
-              {/* Searchable Member Select */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Select Your Name
-                </label>
-                <CustomMemberSelect
-                  teamMembers={teamMembers}
-                  selectedName={selectedName}
-                  onSelect={(name) => setSelectedName(name)}
-                  placeholder="Search or pick your name..."
-                />
-              </div>
-
-              {/* Service Radio Grid */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Select Service (8 max)</label>
-                <div className="grid grid-cols-1 gap-2">
-                  
-                  {/* 10AM */}
-                  <label className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                    selectedService === "10AM"
-                      ? "bg-blue-50 border-blue-500 shadow-sm shadow-blue-500/10"
-                      : "bg-white border-slate-200"
-                  } ${list10AM.length >= 8 && selectedService !== "10AM" ? "opacity-40 cursor-not-allowed" : ""}`}>
-                    <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800">
-                      <input
-                        type="radio"
-                        name="service"
-                        value="10AM"
-                        disabled={list10AM.length >= 8 && selectedService !== "10AM"}
-                        checked={selectedService === "10AM"}
-                        onChange={() => setSelectedService("10AM")}
-                        className="text-[#FF6B00]"
-                      />
-                      10:00 AM Service
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                      {list10AM.length}/8 Filled
-                    </span>
-                  </label>
-
-                  {/* 1PM */}
-                  <label className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                    selectedService === "1PM"
-                      ? "bg-orange-50 border-[#FF6B00] shadow-sm shadow-orange-500/10"
-                      : "bg-white border-slate-200"
-                  } ${list1PM.length >= 8 && selectedService !== "1PM" ? "opacity-40 cursor-not-allowed" : ""}`}>
-                    <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800">
-                      <input
-                        type="radio"
-                        name="service"
-                        value="1PM"
-                        disabled={list1PM.length >= 8 && selectedService !== "1PM"}
-                        checked={selectedService === "1PM"}
-                        onChange={() => setSelectedService("1PM")}
-                        className="text-[#FF6B00]"
-                      />
-                      1:00 PM Service
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                      {list1PM.length}/8 Filled
-                    </span>
-                  </label>
-
-                  {/* 4PM */}
-                  <label className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                    selectedService === "4PM"
-                      ? "bg-purple-50 border-purple-500 shadow-sm shadow-purple-500/10"
-                      : "bg-white border-slate-200"
-                  } ${list4PM.length >= 8 && selectedService !== "4PM" ? "opacity-40 cursor-not-allowed" : ""}`}>
-                    <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800">
-                      <input
-                        type="radio"
-                        name="service"
-                        value="4PM"
-                        disabled={list4PM.length >= 8 && selectedService !== "4PM"}
-                        checked={selectedService === "4PM"}
-                        onChange={() => setSelectedService("4PM")}
-                        className="text-[#FF6B00]"
-                      />
-                      4:00 PM Service
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                      {list4PM.length}/8 Filled
-                    </span>
-                  </label>
-
-                  {/* Not Attending */}
-                  <label className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                    selectedService === "NOT_ATTENDING"
-                      ? "bg-slate-100 border-slate-400"
-                      : "bg-white border-slate-200"
-                  }`}>
-                    <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800">
-                      <input
-                        type="radio"
-                        name="service"
-                        value="NOT_ATTENDING"
-                        checked={selectedService === "NOT_ATTENDING"}
-                        onChange={() => setSelectedService("NOT_ATTENDING")}
-                        className="text-[#FF6B00]"
-                      />
-                      Not Attending
-                    </div>
-                  </label>
-
+            {successInfo ? (
+              <div className="space-y-4 py-2 text-center">
+                <div className="mx-auto w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6" />
                 </div>
-              </div>
-
-              {/* Reason input when not attending */}
-              {selectedService === "NOT_ATTENDING" && (
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Reason (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Out of town / Nephew's bday"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#FF6B00]"
-                  />
+                  <h4 className="text-base font-black text-slate-900">{successInfo.message}</h4>
+                  {successInfo.editToken && (
+                    <div className="p-3.5 rounded-2xl bg-orange-50 border border-orange-200 text-xs space-y-1 mt-2">
+                      <div className="text-slate-500 font-medium">Your Slot Edit Passkey:</div>
+                      <div className="font-mono text-sm font-black text-[#FF6B00] tracking-wider">{successInfo.editToken}</div>
+                      <div className="text-[10px] text-slate-400">Save this if you wish to change your slot later.</div>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {/* New Device Passkey Input */}
-              {savedIdentity && savedIdentity.name !== selectedName && (
-                <div className="space-y-1 pt-1 border-t border-slate-100">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                    <KeyRound className="w-3 h-3 text-[#FF6B00]" /> Edit Passkey (If changing from another device)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. NINO482"
-                    value={passkeyInput}
-                    onChange={(e) => setPasskeyInput(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-800 focus:outline-none"
-                  />
-                </div>
-              )}
-
-              <div className="pt-2 flex gap-2">
                 <button
-                  type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="w-1/3 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs"
+                  className="w-full py-3 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-xs transition-all"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending || !selectedName}
-                  className="w-2/3 py-3 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-black text-xs shadow-lg shadow-orange-500/25 flex items-center justify-center gap-1.5 disabled:opacity-50"
-                >
-                  {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm Slot"}
+                  Done
                 </button>
               </div>
+            ) : (
+              <form onSubmit={handleFormSubmit} className="space-y-3.5">
+                
+                {/* Searchable Roster Select */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Your Name *
+                  </label>
+                  <CustomMemberSelect
+                    teamMembers={teamMembers}
+                    selectedName={selectedName}
+                    placeholder="Search and choose your name..."
+                    onSelect={(val: any) => setSelectedName(typeof val === "string" ? val : val.name)}
+                  />
+                </div>
 
-            </form>
+                {/* Service Selection */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Service Time *
+                  </label>
+                  <select
+                    value={selectedService}
+                    onChange={(e) => setSelectedService(e.target.value as ServiceType)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-[#FF6B00]"
+                  >
+                    <option value="10AM">10:00 AM Service ({list10AM.length}/8)</option>
+                    <option value="1PM">1:00 PM Service ({list1PM.length}/8)</option>
+                    <option value="4PM">4:00 PM Service ({list4PM.length}/8)</option>
+                    <option value="NOT_ATTENDING">Cannot Attend (Excused)</option>
+                  </select>
+                </div>
+
+                {/* Reason if Not Attending */}
+                {selectedService === "NOT_ATTENDING" && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Reason
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sickness, Out of town"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {/* Passkey if modifying existing booking */}
+                {existingAttendee && (
+                  <div className="space-y-1 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                      <KeyRound className="w-3 h-3 text-[#FF6B00]" />
+                      Edit Passkey (Required for updates)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter passkey (e.g. KARM482)"
+                      value={editPasskey}
+                      onChange={(e) => setEditPasskey(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-800 focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                <div className="pt-2 flex gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="w-1/3 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isPending || !selectedName}
+                    className="w-2/3 py-3 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-black text-xs shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all active:scale-95"
+                  >
+                    {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm Slot"}
+                  </button>
+                </div>
+
+              </form>
+            )}
 
           </div>
         </div>

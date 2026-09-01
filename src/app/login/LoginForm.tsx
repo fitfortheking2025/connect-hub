@@ -151,7 +151,6 @@ export default function LoginForm() {
           
           {/* Sunday Attendance Board Link */}
           <Link
-            target="_blank"
             href="/schedule"
             className="w-full p-3 rounded-2xl bg-[#FFF9F5] hover:bg-[#FFF3EB] border border-orange-200/70 flex items-center justify-between transition-all group active:scale-[0.99]"
           >

@@ -268,3 +268,48 @@ export async function removeAttendeeAction(payload: { sundayDate: string; name: 
     return { success: false, error: error.message || "Failed to remove attendee." };
   }
 }
+
+export async function toggleLockAttendeeAction(payload: {
+  sundayDate: string;
+  name: string;
+}) {
+  try {
+    const session = await auth();
+    const rawRole = String((session?.user as any)?.role || "").trim().toUpperCase();
+    const userRole = rawRole.replace(/[\s-]+/g, "_");
+
+    if (userRole !== "ADMIN" && userRole !== "TEAM_LEADER") {
+      return { success: false, error: "Unauthorized. Team Leader or Admin access required." };
+    }
+
+    await dbConnect();
+    const schedule = await SundaySchedule.findOne({ sundayDate: payload.sundayDate });
+    if (!schedule) {
+      return { success: false, error: "Schedule not found." };
+    }
+
+    const attendee = schedule.attendees.find(
+      (a: any) => a.name.toLowerCase() === payload.name.toLowerCase()
+    );
+
+    if (!attendee) {
+      return { success: false, error: "Attendee not found." };
+    }
+
+    attendee.isLockedByLeader = !attendee.isLockedByLeader;
+    schedule.markModified("attendees");
+    await schedule.save();
+
+    revalidatePath("/schedule");
+    revalidatePath("/admin/schedule");
+    revalidatePath("/sunday-schedule");
+
+    return {
+      success: true,
+      isLocked: attendee.isLockedByLeader,
+      message: `${payload.name} is now ${attendee.isLockedByLeader ? "locked" : "unlocked"}.`,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to update lock status." };
+  }
+}

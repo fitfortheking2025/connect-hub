@@ -8,6 +8,7 @@ import {
   Calendar, 
   Clock, 
   Lock, 
+  Unlock,
   Trash2, 
   UserPlus, 
   Copy, 
@@ -24,7 +25,11 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { formatSundayDateHuman } from "@/lib/sundayDate";
-import { leaderPreAssignAction, removeAttendeeAction } from "@/app/actions/scheduleAction";
+import { 
+  leaderPreAssignAction, 
+  removeAttendeeAction, 
+  toggleLockAttendeeAction 
+} from "@/app/actions/scheduleAction";
 import CustomMemberSelect from "@/app/components/CustomMemberSelect";
 
 interface Attendee {
@@ -241,6 +246,30 @@ export default function AdminScheduleClientView({
     });
   };
 
+  const handleToggleLock = (name: string) => {
+    // Optimistic Lock Update
+    setSchedule((prev: any) => {
+      const updatedAttendees = (prev?.attendees || []).map((att: Attendee) => {
+        if (att.name.toLowerCase() === name.toLowerCase()) {
+          return { ...att, isLockedByLeader: !att.isLockedByLeader };
+        }
+        return att;
+      });
+      return { ...prev, attendees: updatedAttendees };
+    });
+
+    startTransition(async () => {
+      const res = await toggleLockAttendeeAction({ sundayDate, name });
+      if (res.success) {
+        showToast(res.message || "Lock status updated.");
+        router.refresh();
+      } else {
+        alert(res.error || "Failed to change lock state.");
+        router.refresh();
+      }
+    });
+  };
+
   const handleConfirmRemove = () => {
     if (!attendeeToRemove) return;
     setIsDeleting(true);
@@ -323,7 +352,7 @@ export default function AdminScheduleClientView({
                 Sunday Attendance Control
               </h1>
               <p className="text-[11px] sm:text-xs text-slate-400 font-medium mt-0.5 leading-snug">
-                💡 Drag & drop members across services to move them instantly.
+                💡 Drag & drop members across services or toggle locks to prevent self-editing.
               </p>
             </div>
           </div>
@@ -397,7 +426,7 @@ export default function AdminScheduleClientView({
 
       </div>
 
-      {/* 3 Services Interactive Drop Columns */}
+      {/* 3 Services Interactive Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
         {/* 10AM COLUMN */}
@@ -444,21 +473,35 @@ export default function AdminScheduleClientView({
                         <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
                       )}
                       <span className="truncate">{item ? item.name : "Open Slot"}</span>
-                      {item?.isLockedByLeader && (
-                        <span title="Locked by Leader" className="text-orange-500">
-                          <Lock className="w-3 h-3 inline" />
-                        </span>
-                      )}
                     </div>
 
                     {item && (
-                      <button
-                        onClick={() => setAttendeeToRemove({ name: item.name, service: "10:00 AM Service" })}
-                        className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors shrink-0"
-                        title="Remove from 10AM"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLock(item.name)}
+                          className={`p-1 rounded-lg transition-colors ${
+                            item.isLockedByLeader
+                              ? "text-orange-500 hover:bg-orange-50"
+                              : "text-slate-300 hover:text-slate-600 hover:bg-slate-100"
+                          }`}
+                          title={item.isLockedByLeader ? "Click to Unlock Slot" : "Click to Lock Slot"}
+                        >
+                          {item.isLockedByLeader ? (
+                            <Lock className="w-3.5 h-3.5" />
+                          ) : (
+                            <Unlock className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => setAttendeeToRemove({ name: item.name, service: "10:00 AM Service" })}
+                          className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Remove from 10AM"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 );
@@ -519,21 +562,35 @@ export default function AdminScheduleClientView({
                         <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
                       )}
                       <span className="truncate">{item ? item.name : "Open Slot"}</span>
-                      {item?.isLockedByLeader && (
-                        <span title="Locked by Leader" className="text-orange-500">
-                          <Lock className="w-3 h-3 inline" />
-                        </span>
-                      )}
                     </div>
 
                     {item && (
-                      <button
-                        onClick={() => setAttendeeToRemove({ name: item.name, service: "1:00 PM Service" })}
-                        className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors shrink-0"
-                        title="Remove from 1PM"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLock(item.name)}
+                          className={`p-1 rounded-lg transition-colors ${
+                            item.isLockedByLeader
+                              ? "text-orange-500 hover:bg-orange-50"
+                              : "text-slate-300 hover:text-slate-600 hover:bg-slate-100"
+                          }`}
+                          title={item.isLockedByLeader ? "Click to Unlock Slot" : "Click to Lock Slot"}
+                        >
+                          {item.isLockedByLeader ? (
+                            <Lock className="w-3.5 h-3.5" />
+                          ) : (
+                            <Unlock className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => setAttendeeToRemove({ name: item.name, service: "1:00 PM Service" })}
+                          className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Remove from 1PM"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 );
@@ -594,21 +651,35 @@ export default function AdminScheduleClientView({
                         <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
                       )}
                       <span className="truncate">{item ? item.name : "Open Slot"}</span>
-                      {item?.isLockedByLeader && (
-                        <span title="Locked by Leader" className="text-orange-500">
-                          <Lock className="w-3 h-3 inline" />
-                        </span>
-                      )}
                     </div>
 
                     {item && (
-                      <button
-                        onClick={() => setAttendeeToRemove({ name: item.name, service: "4:00 PM Service" })}
-                        className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors shrink-0"
-                        title="Remove from 4PM"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLock(item.name)}
+                          className={`p-1 rounded-lg transition-colors ${
+                            item.isLockedByLeader
+                              ? "text-orange-500 hover:bg-orange-50"
+                              : "text-slate-300 hover:text-slate-600 hover:bg-slate-100"
+                          }`}
+                          title={item.isLockedByLeader ? "Click to Unlock Slot" : "Click to Lock Slot"}
+                        >
+                          {item.isLockedByLeader ? (
+                            <Lock className="w-3.5 h-3.5" />
+                          ) : (
+                            <Unlock className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => setAttendeeToRemove({ name: item.name, service: "4:00 PM Service" })}
+                          className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Remove from 4PM"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 );
@@ -683,7 +754,7 @@ export default function AdminScheduleClientView({
         )}
       </div>
 
-      {/* Pre-Assign / Lock Modal */}
+      {/* Pre-Assign Modal */}
       {isAssignModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-md bg-white rounded-[28px] border border-slate-200 shadow-2xl p-6 space-y-4 animate-in zoom-in-95">
@@ -708,7 +779,7 @@ export default function AdminScheduleClientView({
                 <CustomMemberSelect
                   teamMembers={teamMembers}
                   selectedName={selectedName}
-                  onSelect={(name) => setSelectedName(name)}
+                  onSelect={(val: any) => setSelectedName(typeof val === "string" ? val : val.name)}
                 />
               </div>
 
