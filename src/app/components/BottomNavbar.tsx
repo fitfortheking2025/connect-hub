@@ -7,14 +7,16 @@ import {
   Sparkles, 
   BarChart3, 
   Users, 
-  ShieldCheck 
+  ShieldCheck, 
+  Calendar
 } from "lucide-react";
 
 interface BottomNavBarProps {
   isAdmin?: boolean;
+  isAdminorTeamLeader?: boolean;
 }
 
-export default function BottomNavBar({ isAdmin = false }: BottomNavBarProps) {
+export default function BottomNavBar({ isAdmin = false, isAdminorTeamLeader = false }: BottomNavBarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -43,6 +45,15 @@ export default function BottomNavBar({ isAdmin = false }: BottomNavBarProps) {
       icon: Users,
       isActive: pathname.startsWith("/connect-team"),
     },
+    ...(isAdminorTeamLeader
+      ? [
+          {
+            label: "Sunday Attendance",
+            href: "/sunday-schedule",
+            icon: Calendar,
+          },
+        ]
+      : []),
     ...(isAdmin
       ? [
           {

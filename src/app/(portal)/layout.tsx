@@ -109,7 +109,7 @@ export default async function PortalLayout({
         </PullToRefresh>
 
         {/* Pass isAdmin to BottomNavBar */}
-        <BottomNavBar isAdmin={isAdmin} />
+        <BottomNavBar isAdmin={isAdmin} isAdminorTeamLeader={isAdminorTeamLeader}/>
       </div>
     </div>
   );
