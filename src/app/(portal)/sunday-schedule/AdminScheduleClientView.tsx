@@ -22,13 +22,15 @@ import {
   CheckCircle2,
   X,
   GripVertical,
-  AlertTriangle
+  AlertTriangle,
+  Radio
 } from "lucide-react";
 import { formatSundayDateHuman } from "@/lib/sundayDate";
 import { 
   leaderPreAssignAction, 
   removeAttendeeAction, 
-  toggleLockAttendeeAction 
+  toggleLockAttendeeAction,
+  toggleMemberBookingWindowAction
 } from "@/app/actions/scheduleAction";
 import CustomMemberSelect from "@/app/components/CustomMemberSelect";
 
@@ -37,12 +39,14 @@ interface Attendee {
   name: string;
   service: "10AM" | "1PM" | "4PM" | "NOT_ATTENDING";
   reason?: string;
-  editToken: string;
+  isLeader?: boolean;
   isLockedByLeader?: boolean;
   assignedBy?: string;
 }
 
 type ServiceType = "10AM" | "1PM" | "4PM" | "NOT_ATTENDING";
+
+const MAX_MEMBERS = 8;
 
 export default function AdminScheduleClientView({
   initialSchedule,
@@ -52,13 +56,14 @@ export default function AdminScheduleClientView({
 }: {
   initialSchedule: any;
   sundayDate: string;
-  teamMembers: Array<{ _id: string; name: string }>;
+  teamMembers: Array<{ _id: string; name: string; role?: string }>;
   userRole: string;
 }) {
   const router = useRouter();
   const [schedule, setSchedule] = useState(initialSchedule);
   const [isPending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
+  const [isTogglingWindow, setIsTogglingWindow] = useState(false);
 
   useEffect(() => {
     setSchedule(initialSchedule);
@@ -108,7 +113,7 @@ export default function AdminScheduleClientView({
     }
   };
 
-  // --- Drag and Drop Handlers ---
+  // Drag and Drop Handlers
   const handleDragStart = (e: React.DragEvent, attendee: Attendee) => {
     setDraggedAttendee(attendee);
     e.dataTransfer.setData("text/plain", attendee.name);
@@ -141,8 +146,10 @@ export default function AdminScheduleClientView({
     }
 
     const targetList = getServiceList(targetService);
-    if (targetService !== "NOT_ATTENDING" && targetList.length >= 8) {
-      showToast(`Cannot move: ${targetService} is already full (8/8)!`);
+    const nonLeaderCount = targetList.filter((a) => !a.isLeader).length;
+
+    if (targetService !== "NOT_ATTENDING" && !draggedAttendee.isLeader && nonLeaderCount >= MAX_MEMBERS) {
+      showToast(`Cannot move: ${targetService} member slots are full (8/8)!`);
       setDraggedAttendee(null);
       return;
     }
@@ -150,7 +157,6 @@ export default function AdminScheduleClientView({
     const movingPerson = draggedAttendee;
     setDraggedAttendee(null);
 
-    // Optimistic UI Update
     setSchedule((prev: any) => {
       const updatedAttendees = (prev?.attendees || []).map((att: Attendee) => {
         if (att.name.toLowerCase() === movingPerson.name.toLowerCase()) {
@@ -195,6 +201,26 @@ export default function AdminScheduleClientView({
     });
   };
 
+  const handleToggleBookingWindow = async () => {
+    setIsTogglingWindow(true);
+    try {
+      const res = await toggleMemberBookingWindowAction({
+        sundayDate,
+        open: !schedule?.isRegistrationOpen,
+      });
+
+      if (res.success) {
+        setSchedule((prev: any) => ({ ...prev, isRegistrationOpen: res.isOpen }));
+        showToast(res.message || "Updated registration state.");
+        router.refresh();
+      } else {
+        alert(res.error || "Failed to update registration state.");
+      }
+    } finally {
+      setIsTogglingWindow(false);
+    }
+  };
+
   const handleOpenAssignModal = (presetService: ServiceType = "10AM") => {
     setError(null);
     setSelectedName("");
@@ -220,7 +246,6 @@ export default function AdminScheduleClientView({
       if (res.success && res.attendee) {
         setSchedule((prev: any) => {
           const currentAttendees = [...(prev?.attendees || [])];
-
           const idx = currentAttendees.findIndex(
             (a) => a.name.toLowerCase() === res.attendee.name.toLowerCase()
           );
@@ -231,10 +256,7 @@ export default function AdminScheduleClientView({
             currentAttendees.push(res.attendee);
           }
 
-          return {
-            ...prev,
-            attendees: currentAttendees,
-          };
+          return { ...prev, attendees: currentAttendees };
         });
 
         showToast(res.message || "Slot assigned successfully!");
@@ -247,7 +269,6 @@ export default function AdminScheduleClientView({
   };
 
   const handleToggleLock = (name: string) => {
-    // Optimistic Lock Update
     setSchedule((prev: any) => {
       const updatedAttendees = (prev?.attendees || []).map((att: Attendee) => {
         if (att.name.toLowerCase() === name.toLowerCase()) {
@@ -299,17 +320,27 @@ export default function AdminScheduleClientView({
     const formattedDate = formatSundayDateHuman(sundayDate);
     let text = `SUNDAY ATTENDANCE:\n${formattedDate}\nKindly note that we will only be allowing "8 members" per service to ensure balance and order in the team. We appreciate your understanding and cooperation. Thank you and God bless\n\n`;
 
-    text += `10AM SERVICE (${list10AM.length}/8):\n`;
-    if (list10AM.length === 0) text += `(Open)\n`;
-    else list10AM.forEach((a, i) => { text += `${i + 1}. ${a.name}${a.isLockedByLeader ? " (Assigned)" : ""}\n`; });
+    const formatList = (title: string, list: Attendee[]) => {
+      const leaders = list.filter((a) => a.isLeader);
+      const members = list.filter((a) => !a.isLeader);
 
-    text += `\n1PM SERVICE (${list1PM.length}/8):\n`;
-    if (list1PM.length === 0) text += `(Open)\n`;
-    else list1PM.forEach((a, i) => { text += `${i + 1}. ${a.name}${a.isLockedByLeader ? " (Assigned)" : ""}\n`; });
+      let str = `${title} (${members.length}/9):\n`;
+      if (leaders.length > 0) {
+        str += `Leaders: ${leaders.map((l) => l.name).join(", ")}\n`;
+      }
+      if (members.length === 0) {
+        str += `(Open)\n`;
+      } else {
+        members.forEach((a, i) => {
+          str += `${i + 1}. ${a.name}${a.isLockedByLeader ? " (Assigned)" : ""}\n`;
+        });
+      }
+      return str;
+    };
 
-    text += `\n4PM SERVICE (${list4PM.length}/8):\n`;
-    if (list4PM.length === 0) text += `(Open)\n`;
-    else list4PM.forEach((a, i) => { text += `${i + 1}. ${a.name}${a.isLockedByLeader ? " (Assigned)" : ""}\n`; });
+    text += formatList("10AM SERVICE", list10AM);
+    text += "\n" + formatList("1PM SERVICE", list1PM);
+    text += "\n" + formatList("4PM SERVICE", list4PM);
 
     if (listNotAttending.length > 0) {
       text += `\nNot Attending:\n`;
@@ -324,10 +355,130 @@ export default function AdminScheduleClientView({
     setTimeout(() => setCopiedGc(false), 2500);
   };
 
+  const renderServiceColumn = (
+    serviceKey: ServiceType,
+    title: string,
+    list: Attendee[],
+    colorClass: { ring: string; border: string; bg: string; text: string; button: string }
+  ) => {
+    const leaders = list.filter((a) => a.isLeader);
+    const members = list.filter((a) => !a.isLeader);
+
+    return (
+      <div 
+        onDragOver={(e) => handleDragOver(e, serviceKey)}
+        onDragLeave={(e) => handleDragLeave(e, serviceKey)}
+        onDrop={(e) => handleDrop(e, serviceKey)}
+        className={`bg-white rounded-[28px] border p-5 shadow-sm space-y-3 flex flex-col justify-between transition-all duration-200 ${
+          dragOverColumn === serviceKey
+            ? `${colorClass.border} ring-2 ${colorClass.ring} ${colorClass.bg} scale-[1.01]`
+            : "border-slate-200/80"
+        }`}
+      >
+        <div className="space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2 font-black text-slate-900 text-sm">
+              <Clock className={`w-4 h-4 ${colorClass.text}`} /> {title}
+            </div>
+            <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
+              members.length >= MAX_MEMBERS ? "bg-rose-50 text-rose-600 border-rose-200" : `${colorClass.bg} ${colorClass.text} border-slate-200`
+            }`}>
+              {members.length} / 8 Members
+            </span>
+          </div>
+
+          {/* Leaders Header Chip Box */}
+          <div className="bg-orange-50/70 rounded-2xl p-2.5 border border-orange-200/60">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-orange-800 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-orange-600" /> Leaders ({leaders.length}/2)
+              </span>
+            </div>
+            {leaders.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {leaders.map((l) => (
+                  <span key={l.name} className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg text-xs font-bold text-slate-800 border border-orange-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                    {l.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-orange-950/60 italic">No leader assigned yet</p>
+            )}
+          </div>
+
+          {/* 9 Slots */}
+          <div className="space-y-1.5 min-h-[300px]">
+            {Array.from({ length: MAX_MEMBERS }).map((_, i) => {
+              const item = members[i];
+              return (
+                <div
+                  key={i}
+                  draggable={!!item}
+                  onDragStart={(e) => item && handleDragStart(e, item)}
+                  className={`p-2 rounded-xl text-xs flex items-center justify-between border transition-all ${
+                    item
+                      ? "bg-slate-50 hover:bg-slate-100 border-slate-200/90 font-bold text-slate-800 cursor-grab active:cursor-grabbing hover:shadow-sm"
+                      : "bg-slate-50/40 border-dashed border-slate-200 text-slate-300 font-medium"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    {item ? (
+                      <GripVertical className="w-3.5 h-3.5 text-slate-400 shrink-0 cursor-grab" />
+                    ) : (
+                      <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
+                    )}
+                    <span className="truncate">{item ? item.name : "Open Slot"}</span>
+                  </div>
+
+                  {item && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleLock(item.name)}
+                        className={`p-1 rounded-lg transition-colors ${
+                          item.isLockedByLeader
+                            ? "text-orange-500 hover:bg-orange-50"
+                            : "text-slate-300 hover:text-slate-600 hover:bg-slate-100"
+                        }`}
+                        title={item.isLockedByLeader ? "Click to Unlock Slot" : "Click to Lock Slot"}
+                      >
+                        {item.isLockedByLeader ? (
+                          <Lock className="w-3.5 h-3.5" />
+                        ) : (
+                          <Unlock className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => setAttendeeToRemove({ name: item.name, service: title })}
+                        className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
+                        title="Remove attendee"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <button
+          onClick={() => handleOpenAssignModal(serviceKey)}
+          disabled={members.length >= MAX_MEMBERS}
+          className={`w-full py-2 rounded-xl font-bold text-xs transition-colors disabled:opacity-40 ${colorClass.button}`}
+        >
+          + Assign to {serviceKey}
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-5 relative select-none">
-      
-      {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] animate-in fade-in slide-in-from-top-4">
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 text-white shadow-2xl text-xs font-bold border border-slate-700">
@@ -337,12 +488,8 @@ export default function AdminScheduleClientView({
         </div>
       )}
 
-      {/* Header Container */}
       <div className="bg-white rounded-[24px] sm:rounded-[32px] border border-slate-200/80 p-4 sm:p-6 shadow-sm space-y-3.5 sm:space-y-4">
-        
-        {/* Top Row: Title & Actions */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
-          
           <div className="flex items-start gap-3">
             <div className="p-2 sm:p-2.5 rounded-2xl bg-orange-50 text-[#FF6B00] border border-orange-200/60 shrink-0 mt-0.5">
               <ShieldCheck className="w-5 h-5" />
@@ -357,8 +504,20 @@ export default function AdminScheduleClientView({
             </div>
           </div>
 
-          {/* Action Row */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <button
+              onClick={handleToggleBookingWindow}
+              disabled={isTogglingWindow}
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                schedule?.isRegistrationOpen
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+              }`}
+            >
+              <Radio className={`w-3.5 h-3.5 ${schedule?.isRegistrationOpen ? "text-emerald-600 animate-pulse" : "text-slate-400"}`} />
+              <span>{schedule?.isRegistrationOpen ? "Member Registration: OPEN" : "Open to Members Early"}</span>
+            </button>
+
             <div className="grid grid-cols-2 sm:flex items-center gap-1.5 sm:gap-2">
               <a
                 href="/schedule"
@@ -393,7 +552,7 @@ export default function AdminScheduleClientView({
           </div>
         </div>
 
-        {/* Bottom Row: Date Navigator */}
+        {/* Date Navigator */}
         <div className="flex items-center justify-between bg-slate-50/90 px-2 py-1.5 sm:px-3 sm:py-2 rounded-2xl border border-slate-200/70">
           <button
             onClick={() => handleShiftWeek(-7)}
@@ -423,279 +582,33 @@ export default function AdminScheduleClientView({
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-
       </div>
 
-      {/* 3 Services Interactive Columns */}
+      {/* 3 Interactive Service Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        
-        {/* 10AM COLUMN */}
-        <div 
-          onDragOver={(e) => handleDragOver(e, "10AM")}
-          onDragLeave={(e) => handleDragLeave(e, "10AM")}
-          onDrop={(e) => handleDrop(e, "10AM")}
-          className={`bg-white rounded-[28px] border p-5 shadow-sm space-y-3 flex flex-col justify-between transition-all duration-200 ${
-            dragOverColumn === "10AM"
-              ? "border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20 scale-[1.01]"
-              : "border-slate-200/80"
-          }`}
-        >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2 font-black text-slate-900 text-sm">
-                <Clock className="w-4 h-4 text-blue-600" /> 10:00 AM Service
-              </div>
-              <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
-                list10AM.length >= 8 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-blue-50 text-blue-700 border-blue-200"
-              }`}>
-                {list10AM.length} / 8 Filled
-              </span>
-            </div>
+        {renderServiceColumn("10AM", "10:00 AM Service", list10AM, {
+          ring: "ring-blue-500/20",
+          border: "border-blue-500",
+          bg: "bg-blue-50/30",
+          text: "text-blue-600",
+          button: "bg-blue-50 hover:bg-blue-100 text-blue-700",
+        })}
 
-            <div className="space-y-1.5 min-h-[260px]">
-              {Array.from({ length: 8 }).map((_, i) => {
-                const item = list10AM[i];
-                return (
-                  <div
-                    key={i}
-                    draggable={!!item}
-                    onDragStart={(e) => item && handleDragStart(e, item)}
-                    className={`p-2.5 rounded-xl text-xs flex items-center justify-between border transition-all ${
-                      item
-                        ? "bg-slate-50 hover:bg-slate-100 border-slate-200/90 font-bold text-slate-800 cursor-grab active:cursor-grabbing hover:shadow-sm"
-                        : "bg-slate-50/40 border-dashed border-slate-200 text-slate-300 font-medium"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      {item ? (
-                        <GripVertical className="w-3.5 h-3.5 text-slate-400 shrink-0 cursor-grab" />
-                      ) : (
-                        <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
-                      )}
-                      <span className="truncate">{item ? item.name : "Open Slot"}</span>
-                    </div>
+        {renderServiceColumn("1PM", "1:00 PM Service", list1PM, {
+          ring: "ring-orange-500/20",
+          border: "border-orange-500",
+          bg: "bg-orange-50/30",
+          text: "text-[#FF6B00]",
+          button: "bg-orange-50 hover:bg-orange-100 text-[#FF6B00]",
+        })}
 
-                    {item && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleLock(item.name)}
-                          className={`p-1 rounded-lg transition-colors ${
-                            item.isLockedByLeader
-                              ? "text-orange-500 hover:bg-orange-50"
-                              : "text-slate-300 hover:text-slate-600 hover:bg-slate-100"
-                          }`}
-                          title={item.isLockedByLeader ? "Click to Unlock Slot" : "Click to Lock Slot"}
-                        >
-                          {item.isLockedByLeader ? (
-                            <Lock className="w-3.5 h-3.5" />
-                          ) : (
-                            <Unlock className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-
-                        <button
-                          onClick={() => setAttendeeToRemove({ name: item.name, service: "10:00 AM Service" })}
-                          className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
-                          title="Remove from 10AM"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            onClick={() => handleOpenAssignModal("10AM")}
-            disabled={list10AM.length >= 8}
-            className="w-full py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition-colors disabled:opacity-40"
-          >
-            + Assign to 10AM
-          </button>
-        </div>
-
-        {/* 1PM COLUMN */}
-        <div 
-          onDragOver={(e) => handleDragOver(e, "1PM")}
-          onDragLeave={(e) => handleDragLeave(e, "1PM")}
-          onDrop={(e) => handleDrop(e, "1PM")}
-          className={`bg-white rounded-[28px] border p-5 shadow-sm space-y-3 flex flex-col justify-between transition-all duration-200 ${
-            dragOverColumn === "1PM"
-              ? "border-orange-500 ring-2 ring-orange-500/20 bg-orange-50/20 scale-[1.01]"
-              : "border-slate-200/80"
-          }`}
-        >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2 font-black text-slate-900 text-sm">
-                <Clock className="w-4 h-4 text-[#FF6B00]" /> 1:00 PM Service
-              </div>
-              <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
-                list1PM.length >= 8 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-orange-50 text-[#FF6B00] border-orange-200"
-              }`}>
-                {list1PM.length} / 8 Filled
-              </span>
-            </div>
-
-            <div className="space-y-1.5 min-h-[260px]">
-              {Array.from({ length: 8 }).map((_, i) => {
-                const item = list1PM[i];
-                return (
-                  <div
-                    key={i}
-                    draggable={!!item}
-                    onDragStart={(e) => item && handleDragStart(e, item)}
-                    className={`p-2.5 rounded-xl text-xs flex items-center justify-between border transition-all ${
-                      item
-                        ? "bg-slate-50 hover:bg-slate-100 border-slate-200/90 font-bold text-slate-800 cursor-grab active:cursor-grabbing hover:shadow-sm"
-                        : "bg-slate-50/40 border-dashed border-slate-200 text-slate-300 font-medium"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      {item ? (
-                        <GripVertical className="w-3.5 h-3.5 text-slate-400 shrink-0 cursor-grab" />
-                      ) : (
-                        <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
-                      )}
-                      <span className="truncate">{item ? item.name : "Open Slot"}</span>
-                    </div>
-
-                    {item && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleLock(item.name)}
-                          className={`p-1 rounded-lg transition-colors ${
-                            item.isLockedByLeader
-                              ? "text-orange-500 hover:bg-orange-50"
-                              : "text-slate-300 hover:text-slate-600 hover:bg-slate-100"
-                          }`}
-                          title={item.isLockedByLeader ? "Click to Unlock Slot" : "Click to Lock Slot"}
-                        >
-                          {item.isLockedByLeader ? (
-                            <Lock className="w-3.5 h-3.5" />
-                          ) : (
-                            <Unlock className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-
-                        <button
-                          onClick={() => setAttendeeToRemove({ name: item.name, service: "1:00 PM Service" })}
-                          className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
-                          title="Remove from 1PM"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            onClick={() => handleOpenAssignModal("1PM")}
-            disabled={list1PM.length >= 8}
-            className="w-full py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] font-bold text-xs transition-colors disabled:opacity-40"
-          >
-            + Assign to 1PM
-          </button>
-        </div>
-
-        {/* 4PM COLUMN */}
-        <div 
-          onDragOver={(e) => handleDragOver(e, "4PM")}
-          onDragLeave={(e) => handleDragLeave(e, "4PM")}
-          onDrop={(e) => handleDrop(e, "4PM")}
-          className={`bg-white rounded-[28px] border p-5 shadow-sm space-y-3 flex flex-col justify-between transition-all duration-200 ${
-            dragOverColumn === "4PM"
-              ? "border-purple-500 ring-2 ring-purple-500/20 bg-purple-50/20 scale-[1.01]"
-              : "border-slate-200/80"
-          }`}
-        >
-          <div className="space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2 font-black text-slate-900 text-sm">
-                <Clock className="w-4 h-4 text-purple-600" /> 4:00 PM Service
-              </div>
-              <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
-                list4PM.length >= 8 ? "bg-rose-50 text-rose-600 border-rose-200" : "bg-purple-50 text-purple-700 border-purple-200"
-              }`}>
-                {list4PM.length} / 8 Filled
-              </span>
-            </div>
-
-            <div className="space-y-1.5 min-h-[260px]">
-              {Array.from({ length: 8 }).map((_, i) => {
-                const item = list4PM[i];
-                return (
-                  <div
-                    key={i}
-                    draggable={!!item}
-                    onDragStart={(e) => item && handleDragStart(e, item)}
-                    className={`p-2.5 rounded-xl text-xs flex items-center justify-between border transition-all ${
-                      item
-                        ? "bg-slate-50 hover:bg-slate-100 border-slate-200/90 font-bold text-slate-800 cursor-grab active:cursor-grabbing hover:shadow-sm"
-                        : "bg-slate-50/40 border-dashed border-slate-200 text-slate-300 font-medium"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      {item ? (
-                        <GripVertical className="w-3.5 h-3.5 text-slate-400 shrink-0 cursor-grab" />
-                      ) : (
-                        <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
-                      )}
-                      <span className="truncate">{item ? item.name : "Open Slot"}</span>
-                    </div>
-
-                    {item && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleLock(item.name)}
-                          className={`p-1 rounded-lg transition-colors ${
-                            item.isLockedByLeader
-                              ? "text-orange-500 hover:bg-orange-50"
-                              : "text-slate-300 hover:text-slate-600 hover:bg-slate-100"
-                          }`}
-                          title={item.isLockedByLeader ? "Click to Unlock Slot" : "Click to Lock Slot"}
-                        >
-                          {item.isLockedByLeader ? (
-                            <Lock className="w-3.5 h-3.5" />
-                          ) : (
-                            <Unlock className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-
-                        <button
-                          onClick={() => setAttendeeToRemove({ name: item.name, service: "4:00 PM Service" })}
-                          className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
-                          title="Remove from 4PM"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            onClick={() => handleOpenAssignModal("4PM")}
-            disabled={list4PM.length >= 8}
-            className="w-full py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs transition-colors disabled:opacity-40"
-          >
-            + Assign to 4PM
-          </button>
-        </div>
-
+        {renderServiceColumn("4PM", "4:00 PM Service", list4PM, {
+          ring: "ring-purple-500/20",
+          border: "border-purple-500",
+          bg: "bg-purple-50/30",
+          text: "text-purple-600",
+          button: "bg-purple-50 hover:bg-purple-100 text-purple-700",
+        })}
       </div>
 
       {/* NOT ATTENDING DROP ZONE */}
@@ -790,9 +703,9 @@ export default function AdminScheduleClientView({
                   onChange={(e) => setSelectedService(e.target.value as ServiceType)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-[#FF6B00]"
                 >
-                  <option value="10AM">10:00 AM Service ({list10AM.length}/8)</option>
-                  <option value="1PM">1:00 PM Service ({list1PM.length}/8)</option>
-                  <option value="4PM">4:00 PM Service ({list4PM.length}/8)</option>
+                  <option value="10AM">10:00 AM Service ({list10AM.filter(a => !a.isLeader).length}/9)</option>
+                  <option value="1PM">1:00 PM Service ({list1PM.filter(a => !a.isLeader).length}/9)</option>
+                  <option value="4PM">4:00 PM Service ({list4PM.filter(a => !a.isLeader).length}/9)</option>
                   <option value="NOT_ATTENDING">Not Attending / Excused</option>
                 </select>
               </div>
@@ -841,11 +754,10 @@ export default function AdminScheduleClientView({
         </div>
       )}
 
-      {/* Custom Confirmation Removal Modal */}
+      {/* Confirmation Removal Modal */}
       {attendeeToRemove && mounted && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-sm bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200 shadow-2xl p-6 space-y-4 animate-in zoom-in-95 text-center">
-            
             <div className="mx-auto w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200/60 flex items-center justify-center text-rose-600 shadow-lg shadow-rose-500/10">
               <AlertTriangle className="w-7 h-7" />
             </div>
@@ -877,12 +789,10 @@ export default function AdminScheduleClientView({
                 {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Yes, Remove"}
               </button>
             </div>
-
           </div>
         </div>,
         document.body
       )}
-
     </div>
   );
 }

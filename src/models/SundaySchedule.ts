@@ -1,12 +1,10 @@
-// src/models/SundaySchedule.ts
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-export interface ISundayAttendee {
+export interface IAttendee {
   memberId?: string;
   name: string;
   service: "10AM" | "1PM" | "4PM" | "NOT_ATTENDING";
   reason?: string;
-  editToken: string;
   isLockedByLeader?: boolean;
   assignedBy?: string;
   updatedAt: Date;
@@ -14,34 +12,38 @@ export interface ISundayAttendee {
 
 export interface ISundaySchedule extends Document {
   sundayDate: string;
-  attendees: ISundayAttendee[];
+  isRegistrationOpen?: boolean;
+  attendees: IAttendee[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-const AttendeeSchema = new Schema<ISundayAttendee>({
-  memberId: { type: String, default: "" },
-  name: { type: String, required: true },
-  service: { 
-    type: String, 
-    enum: ["10AM", "1PM", "4PM", "NOT_ATTENDING"], 
-    required: true 
+const AttendeeSchema = new Schema<IAttendee>(
+  {
+    memberId: { type: String, default: "" },
+    name: { type: String, required: true },
+    service: {
+      type: String,
+      enum: ["10AM", "1PM", "4PM", "NOT_ATTENDING"],
+      required: true,
+    },
+    reason: { type: String, default: "" },
+    isLockedByLeader: { type: Boolean, default: false },
+    assignedBy: { type: String, default: "" },
+    updatedAt: { type: Date, default: Date.now },
   },
-  reason: { type: String, default: "" },
-  editToken: { type: String, required: true },
-  isLockedByLeader: { type: Boolean, default: false },
-  assignedBy: { type: String, default: "" },
-  updatedAt: { type: Date, default: Date.now },
-});
+  { _id: false }
+);
 
 const SundayScheduleSchema = new Schema<ISundaySchedule>(
   {
-    sundayDate: { type: String, required: true, unique: true, index: true },
+    sundayDate: { type: String, required: true, unique: true },
+    isRegistrationOpen: { type: Boolean, default: false },
     attendees: [AttendeeSchema],
   },
   { timestamps: true }
 );
 
-export const SundaySchedule: Model<ISundaySchedule> =
+export const SundaySchedule =
   mongoose.models.SundaySchedule ||
   mongoose.model<ISundaySchedule>("SundaySchedule", SundayScheduleSchema);
