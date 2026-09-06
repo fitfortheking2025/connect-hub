@@ -1,3 +1,4 @@
+// src/app/actions/scheduleAction.ts
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -12,8 +13,10 @@ const MAX_MEMBERS_PER_SERVICE = 8;
 function checkIsMemberBookingAllowed(manualOpen?: boolean): { allowed: boolean; message?: string } {
   if (manualOpen) return { allowed: true };
 
-  const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = Sun, 1 = Mon, ... 6 = Sat
+  // Convert server time to Philippine Time (UTC+8) to prevent UTC day mismatch on Vercel
+  const phDateString = new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" });
+  const phDate = new Date(phDateString);
+  const dayOfWeek = phDate.getDay(); // 0 = Sun, 1 = Mon, 2 = Tue, ... 6 = Sat
 
   if (dayOfWeek === 1 || dayOfWeek === 2) {
     return {
@@ -114,7 +117,18 @@ export async function plotSundayServiceAction(payload: {
       String((session?.user as any)?.role || "").toUpperCase()
     );
 
-    if (!isLeaderOrAdmin) {
+    const trimmedName = name.trim();
+
+    // Check if the selected member is a registered Team Leader
+    const rawMembers = await TeamMember.find({ active: true }).select("name groupName").lean();
+    const leaderNames = rawMembers
+      .filter((m: any) => m.groupName === "Team Leaders")
+      .map((m: any) => m.name.toLowerCase());
+
+    const isCurrentPersonLeader = leaderNames.includes(trimmedName.toLowerCase());
+
+    // Only restrict general members from booking during Monday/Tuesday/Sunday windows
+    if (!isLeaderOrAdmin && !isCurrentPersonLeader) {
       const checkWindow = checkIsMemberBookingAllowed(schedule.isRegistrationOpen);
       if (!checkWindow.allowed) {
         return { success: false, error: checkWindow.message };
@@ -123,7 +137,6 @@ export async function plotSundayServiceAction(payload: {
 
     if (!Array.isArray(schedule.attendees)) schedule.attendees = [];
 
-    const trimmedName = name.trim();
     const existingIndex = schedule.attendees.findIndex(
       (a: any) =>
         a.name.toLowerCase() === trimmedName.toLowerCase() ||
@@ -139,13 +152,6 @@ export async function plotSundayServiceAction(payload: {
         };
       }
     }
-
-    const rawMembers = await TeamMember.find({ active: true }).select("name groupName").lean();
-    const leaderNames = rawMembers
-      .filter((m: any) => m.groupName === "Team Leaders")
-      .map((m: any) => m.name.toLowerCase());
-    
-    const isCurrentPersonLeader = leaderNames.includes(trimmedName.toLowerCase());
 
     if (service !== "NOT_ATTENDING") {
       const currentMembersInService = schedule.attendees.filter(
