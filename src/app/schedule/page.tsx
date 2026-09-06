@@ -14,16 +14,18 @@ export default async function SchedulePage({
   const targetDate = resolvedParams?.date || getNextOrCurrentSunday();
   const res = await getSundayScheduleAction(targetDate);
 
-  const initialSchedule = res.success ? res.schedule : { attendees: [] };
-  const sundayDate = res.success && res.sundayDate ? res.sundayDate : targetDate;
+  const initialSchedule = res.success && res.schedule 
+    ? res.schedule 
+    : { sundayDate: targetDate, attendees: [] };
   const teamMembers = res.success && res.teamMembers ? res.teamMembers : [];
+  const isMemberBookingOpen = Boolean(res.isMemberBookingOpen);
 
   return (
     <div className="min-h-screen w-full bg-[#F8FAFC]">
       <ScheduleClientView
         initialSchedule={initialSchedule}
-        sundayDate={sundayDate}
         teamMembers={teamMembers}
+        isMemberBookingOpen={isMemberBookingOpen}
       />
     </div>
   );
