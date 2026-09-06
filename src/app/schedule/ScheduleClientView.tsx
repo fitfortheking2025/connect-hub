@@ -86,6 +86,12 @@ export default function ScheduleClientView({
   const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  const selectableMembers = isMemberBookingOpen
+    ? teamMembers
+    : teamMembers.filter(
+        (m: any) => m.isLeader || m.groupName === "Team Leaders"
+      );
+
   const handleOpenModal = (service: ServiceType) => {
     setSelectedService(service);
     setSelectedName("");
@@ -243,7 +249,6 @@ export default function ScheduleClientView({
         </div>
       </header>
 
-      {/* Desktop uses max-w-7xl for a comfortable 3-column layout */}
       <main className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 pt-8 space-y-6">
         {!isMemberBookingOpen && (
           <div className="w-full p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-3">
@@ -284,7 +289,6 @@ export default function ScheduleClientView({
           </div>
         </div>
 
-        {/* 3 Colors Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {renderServiceCard("10AM")}
           {renderServiceCard("1PM")}
@@ -311,12 +315,16 @@ export default function ScheduleClientView({
               <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Your Name *
+                    {isMemberBookingOpen ? "Your Name *" : "Team Leader Name *"}
                   </label>
                   <CustomMemberSelect
-                    teamMembers={teamMembers}
+                    teamMembers={selectableMembers}
                     selectedName={selectedName}
-                    placeholder="Select your name..."
+                    placeholder={
+                      isMemberBookingOpen
+                        ? "Select your name..."
+                        : "Select Team Leader name..."
+                    }
                     onSelect={(val: any) => setSelectedName(typeof val === "string" ? val : val.name)}
                   />
                 </div>

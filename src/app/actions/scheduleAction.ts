@@ -51,15 +51,15 @@ export async function getSundayScheduleAction(customDate?: string) {
     }
 
     const rawMembers = await TeamMember.find({ active: true })
-      .select("name role")
+      .select("name groupName")
       .sort({ name: 1 })
       .lean();
 
     const teamMembers = rawMembers.map((m: any) => ({
       _id: String(m._id),
       name: m.name,
-      role: m.role || "MEMBER",
-      isLeader: m.role === "TEAM_LEADER" || m.role === "ADMIN",
+      groupName: m.groupName || "Members",
+      isLeader: m.groupName === "Team Leaders",
     }));
 
     const leaderNameSet = new Set(
@@ -140,9 +140,9 @@ export async function plotSundayServiceAction(payload: {
       }
     }
 
-    const rawMembers = await TeamMember.find({ active: true }).select("name role").lean();
+    const rawMembers = await TeamMember.find({ active: true }).select("name groupName").lean();
     const leaderNames = rawMembers
-      .filter((m: any) => m.role === "TEAM_LEADER" || m.role === "ADMIN")
+      .filter((m: any) => m.groupName === "Team Leaders")
       .map((m: any) => m.name.toLowerCase());
     
     const isCurrentPersonLeader = leaderNames.includes(trimmedName.toLowerCase());

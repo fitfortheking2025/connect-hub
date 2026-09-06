@@ -424,7 +424,7 @@ export default function StandaloneIntakePage() {
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-start gap-3">
             <ShieldCheck className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
-              We are aware of our responsibility to protect your personal data under strict confidentiality. As provided by the Data Privacy Act, you may object to the processing of your personal information, request to access your personal information, and/or have it corrected, erased, or blocked on reasonable grounds.
+              We are aware of our responsibility to protect your personal data under strict confidentiality. As provided under Republic Act No. 10173, also known as the Data Privacy Act of 2012, you may object to the processing of your personal information, request access to your personal information, and/or have it corrected, erased, or blocked on reasonable grounds.
             </p>
           </div>
 
