@@ -1,3 +1,4 @@
+// src/models/SundaySchedule.ts
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IAttendee {
@@ -9,6 +10,9 @@ export interface IAttendee {
   assignedBy?: string;
   updatedAt: Date;
 }
+
+// Add this line to satisfy the export in index.ts:
+export type ISundayAttendee = IAttendee;
 
 export interface ISundaySchedule extends Document {
   sundayDate: string;
