@@ -4,15 +4,19 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, ChevronDown, Check, User } from "lucide-react";
 
-interface MemberItem {
+export interface MemberItem {
   _id: string;
   name: string;
+  nickname?: string;
+  displayName?: string;
+  groupName?: string;
+  isLeader?: boolean;
 }
 
 interface CustomMemberSelectProps {
   teamMembers: MemberItem[];
   selectedName: string;
-  onSelect: (name: string) => void;
+  onSelect: (displayName: string) => void;
   placeholder?: string;
 }
 
@@ -36,11 +40,21 @@ export default function CustomMemberSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filtered = teamMembers.filter((m) =>
-    m.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const getDisplayName = (m: MemberItem) => {
+    return m.nickname?.trim() || m.displayName?.trim() || m.name;
+  };
 
-  const selectedMember = teamMembers.find((m) => m.name === selectedName);
+  const filtered = teamMembers.filter((m) => {
+    const s = search.toLowerCase();
+    const matchNickname = (m.nickname || "").toLowerCase().includes(s);
+    const matchName = m.name.toLowerCase().includes(s);
+    return matchNickname || matchName;
+  });
+
+  const selectedMember = teamMembers.find((m) => {
+    const display = getDisplayName(m);
+    return display === selectedName || m.name === selectedName;
+  });
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -52,7 +66,9 @@ export default function CustomMemberSelect({
         <div className="flex items-center gap-2 truncate">
           <User className="w-4 h-4 text-slate-400 shrink-0" />
           {selectedMember ? (
-            <span className="truncate">{selectedMember.name}</span>
+            <span className="truncate">{getDisplayName(selectedMember)}</span>
+          ) : selectedName ? (
+            <span className="truncate">{selectedName}</span>
           ) : (
             <span className="text-slate-400 font-normal">{placeholder}</span>
           )}
@@ -70,7 +86,7 @@ export default function CustomMemberSelect({
               <input
                 type="text"
                 autoFocus
-                placeholder="Search name..."
+                placeholder="Search nickname or name..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#FF6B00]"
@@ -85,13 +101,16 @@ export default function CustomMemberSelect({
               </div>
             ) : (
               filtered.map((m) => {
-                const isSelected = m.name === selectedName;
+                const displayName = getDisplayName(m);
+                const isSelected = selectedName === displayName || selectedName === m.name;
+                const hasNickname = Boolean(m.nickname?.trim() && m.nickname.trim() !== m.name);
+
                 return (
                   <button
                     key={m._id}
                     type="button"
                     onClick={() => {
-                      onSelect(m.name);
+                      onSelect(displayName);
                       setIsOpen(false);
                       setSearch("");
                     }}
@@ -101,7 +120,16 @@ export default function CustomMemberSelect({
                         : "text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    <span>{m.name}</span>
+                    <div className="min-w-0">
+                      <div className="text-xs font-black text-[#111827]">
+                        {displayName}
+                      </div>
+                      {hasNickname && (
+                        <div className="text-[10px] text-slate-400 font-medium truncate">
+                          {m.name}
+                        </div>
+                      )}
+                    </div>
                     {isSelected && <Check className="w-3.5 h-3.5 text-[#FF6B00] shrink-0" />}
                   </button>
                 );

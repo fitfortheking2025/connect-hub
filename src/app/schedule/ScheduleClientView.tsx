@@ -92,6 +92,15 @@ export default function ScheduleClientView({
         (m: any) => m.isLeader || m.groupName === "Team Leaders"
       );
 
+  // Helper to ensure nickname resolution for existing attendees
+  const getAttendeeDisplayName = (name: string) => {
+    if (!name) return "";
+    const matched = teamMembers.find(
+      (m: any) => m.name?.toLowerCase() === name.toLowerCase() || m.nickname?.toLowerCase() === name.toLowerCase()
+    );
+    return matched?.nickname?.trim() || matched?.displayName || name;
+  };
+
   const handleOpenModal = (service: ServiceType) => {
     setSelectedService(service);
     setSelectedName("");
@@ -163,7 +172,7 @@ export default function ScheduleClientView({
                     className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 border border-slate-200/80 shadow-xs"
                   >
                     <span className={`w-2 h-2 rounded-full ${config.dotBg}`} />
-                    {leader.name}
+                    {getAttendeeDisplayName(leader.name)}
                   </span>
                 ))}
               </div>
@@ -177,6 +186,8 @@ export default function ScheduleClientView({
           <div className="space-y-1.5">
             {Array.from({ length: 8 }).map((_, index) => {
               const attendee = members[index];
+              const displayName = attendee ? getAttendeeDisplayName(attendee.name) : "";
+
               return (
                 <div
                   key={index}
@@ -187,7 +198,7 @@ export default function ScheduleClientView({
                       {index + 1}.
                     </span>
                     <span className={`truncate ${attendee ? "text-slate-800 font-bold" : "text-slate-400 font-medium"}`}>
-                      {attendee ? attendee.name : "Open Slot"}
+                      {attendee ? displayName : "Open Slot"}
                     </span>
                   </div>
                 </div>
@@ -325,7 +336,7 @@ export default function ScheduleClientView({
                         ? "Select your name..."
                         : "Select Team Leader name..."
                     }
-                    onSelect={(val: any) => setSelectedName(typeof val === "string" ? val : val.name)}
+                    onSelect={(val: string) => setSelectedName(val)}
                   />
                 </div>
 

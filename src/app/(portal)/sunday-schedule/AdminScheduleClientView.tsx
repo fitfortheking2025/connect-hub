@@ -8,7 +8,7 @@ import {
   Calendar, 
   Clock, 
   Lock, 
-  Unlock,
+  Unlock, 
   Trash2, 
   UserPlus, 
   Copy, 
@@ -56,7 +56,7 @@ export default function AdminScheduleClientView({
 }: {
   initialSchedule: any;
   sundayDate: string;
-  teamMembers: Array<{ _id: string; name: string; role?: string }>;
+  teamMembers: Array<{ _id: string; name: string; nickname?: string; displayName?: string; role?: string }>;
   userRole: string;
 }) {
   const router = useRouter();
@@ -73,6 +73,18 @@ export default function AdminScheduleClientView({
     setMounted(true);
   }, []);
 
+  // Helper to resolve an attendee's nickname first
+  const getDisplayName = (attendeeName: string) => {
+    if (!attendeeName) return "";
+    const matched = teamMembers.find(
+      (m) =>
+        m.name?.toLowerCase() === attendeeName.toLowerCase() ||
+        m.nickname?.toLowerCase() === attendeeName.toLowerCase() ||
+        m.displayName?.toLowerCase() === attendeeName.toLowerCase()
+    );
+    return matched?.nickname?.trim() || matched?.displayName?.trim() || attendeeName;
+  };
+
   // Modals & Notifications
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [selectedName, setSelectedName] = useState("");
@@ -84,7 +96,7 @@ export default function AdminScheduleClientView({
   const [copiedGc, setCopiedGc] = useState(false);
 
   // Custom Delete Modal State
-  const [attendeeToRemove, setAttendeeToRemove] = useState<{ name: string; service: string } | null>(null);
+  const [attendeeToRemove, setAttendeeToRemove] = useState<{ name: string; displayName: string; service: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Drag and Drop States
@@ -177,7 +189,7 @@ export default function AdminScheduleClientView({
       });
 
       if (res.success) {
-        showToast(`Moved ${movingPerson.name} to ${targetService}`);
+        showToast(`Moved ${getDisplayName(movingPerson.name)} to ${targetService}`);
         router.refresh();
       } else {
         alert(res.error || "Failed to update slot.");
@@ -307,7 +319,7 @@ export default function AdminScheduleClientView({
       setAttendeeToRemove(null);
 
       if (res.success) {
-        showToast(res.message || `Removed ${targetName}.`);
+        showToast(res.message || `Removed ${getDisplayName(targetName)}.`);
         router.refresh();
       } else {
         alert(res.error || "Failed to remove attendee.");
@@ -324,15 +336,15 @@ export default function AdminScheduleClientView({
       const leaders = list.filter((a) => a.isLeader);
       const members = list.filter((a) => !a.isLeader);
 
-      let str = `${title} (${members.length}/9):\n`;
+      let str = `${title} (${members.length}/8):\n`;
       if (leaders.length > 0) {
-        str += `Leaders: ${leaders.map((l) => l.name).join(", ")}\n`;
+        str += `Leaders: ${leaders.map((l) => getDisplayName(l.name)).join(", ")}\n`;
       }
       if (members.length === 0) {
         str += `(Open)\n`;
       } else {
         members.forEach((a, i) => {
-          str += `${i + 1}. ${a.name}${a.isLockedByLeader ? " (Assigned)" : ""}\n`;
+          str += `${i + 1}. ${getDisplayName(a.name)}${a.isLockedByLeader ? " (Assigned)" : ""}\n`;
         });
       }
       return str;
@@ -345,7 +357,7 @@ export default function AdminScheduleClientView({
     if (listNotAttending.length > 0) {
       text += `\nNot Attending:\n`;
       listNotAttending.forEach((a, i) => {
-        text += `${i + 1}. ${a.name}${a.reason ? ` - ${a.reason}` : ""}\n`;
+        text += `${i + 1}. ${getDisplayName(a.name)}${a.reason ? ` - ${a.reason}` : ""}\n`;
       });
     }
 
@@ -399,7 +411,7 @@ export default function AdminScheduleClientView({
                 {leaders.map((l) => (
                   <span key={l.name} className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg text-xs font-bold text-slate-800 border border-orange-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                    {l.name}
+                    {getDisplayName(l.name)}
                   </span>
                 ))}
               </div>
@@ -408,10 +420,12 @@ export default function AdminScheduleClientView({
             )}
           </div>
 
-          {/* 9 Slots */}
+          {/* 8 Slots */}
           <div className="space-y-1.5 min-h-[300px]">
             {Array.from({ length: MAX_MEMBERS }).map((_, i) => {
               const item = members[i];
+              const displayName = item ? getDisplayName(item.name) : "";
+
               return (
                 <div
                   key={i}
@@ -429,7 +443,7 @@ export default function AdminScheduleClientView({
                     ) : (
                       <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
                     )}
-                    <span className="truncate">{item ? item.name : "Open Slot"}</span>
+                    <span className="truncate">{item ? displayName : "Open Slot"}</span>
                   </div>
 
                   {item && (
@@ -452,7 +466,7 @@ export default function AdminScheduleClientView({
                       </button>
 
                       <button
-                        onClick={() => setAttendeeToRemove({ name: item.name, service: title })}
+                        onClick={() => setAttendeeToRemove({ name: item.name, displayName, service: title })}
                         className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
                         title="Remove attendee"
                       >
@@ -640,29 +654,32 @@ export default function AdminScheduleClientView({
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-            {listNotAttending.map((a, i) => (
-              <div 
-                key={i} 
-                draggable
-                onDragStart={(e) => handleDragStart(e, a)}
-                className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-between text-xs cursor-grab active:cursor-grabbing transition-all hover:shadow-sm"
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <GripVertical className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <div className="truncate">
-                    <div className="font-bold text-slate-800 truncate">{a.name}</div>
-                    <div className="text-[10px] text-slate-400 italic truncate">{a.reason || "Excused"}</div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setAttendeeToRemove({ name: a.name, service: "Not Attending" })}
-                  className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 shrink-0"
-                  title="Remove"
+            {listNotAttending.map((a, i) => {
+              const displayName = getDisplayName(a.name);
+              return (
+                <div 
+                  key={i} 
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, a)}
+                  className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-between text-xs cursor-grab active:cursor-grabbing transition-all hover:shadow-sm"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-2 truncate">
+                    <GripVertical className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <div className="truncate">
+                      <div className="font-bold text-slate-800 truncate">{displayName}</div>
+                      <div className="text-[10px] text-slate-400 italic truncate">{a.reason || "Excused"}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setAttendeeToRemove({ name: a.name, displayName, service: "Not Attending" })}
+                    className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 shrink-0"
+                    title="Remove"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -692,7 +709,7 @@ export default function AdminScheduleClientView({
                 <CustomMemberSelect
                   teamMembers={teamMembers}
                   selectedName={selectedName}
-                  onSelect={(val: any) => setSelectedName(typeof val === "string" ? val : val.name)}
+                  onSelect={(val: string) => setSelectedName(val)}
                 />
               </div>
 
@@ -703,9 +720,9 @@ export default function AdminScheduleClientView({
                   onChange={(e) => setSelectedService(e.target.value as ServiceType)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-[#FF6B00]"
                 >
-                  <option value="10AM">10:00 AM Service ({list10AM.filter(a => !a.isLeader).length}/9)</option>
-                  <option value="1PM">1:00 PM Service ({list1PM.filter(a => !a.isLeader).length}/9)</option>
-                  <option value="4PM">4:00 PM Service ({list4PM.filter(a => !a.isLeader).length}/9)</option>
+                  <option value="10AM">10:00 AM Service ({list10AM.filter(a => !a.isLeader).length}/8)</option>
+                  <option value="1PM">1:00 PM Service ({list1PM.filter(a => !a.isLeader).length}/8)</option>
+                  <option value="4PM">4:00 PM Service ({list4PM.filter(a => !a.isLeader).length}/8)</option>
                   <option value="NOT_ATTENDING">Not Attending / Excused</option>
                 </select>
               </div>
@@ -766,7 +783,7 @@ export default function AdminScheduleClientView({
               <h3 className="text-lg font-black text-[#111827]">Remove from Schedule?</h3>
               <p className="text-xs text-slate-500 font-medium px-2 leading-relaxed">
                 Are you sure you want to remove{" "}
-                <strong className="text-[#111827] font-extrabold">&ldquo;{attendeeToRemove.name}&rdquo;</strong>{" "}
+                <strong className="text-[#111827] font-extrabold">&ldquo;{attendeeToRemove.displayName}&rdquo;</strong>{" "}
                 from the <span className="font-semibold text-slate-700">{attendeeToRemove.service}</span>?
               </p>
             </div>

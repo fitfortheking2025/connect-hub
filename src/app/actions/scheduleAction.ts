@@ -53,25 +53,31 @@ export async function getSundayScheduleAction(customDate?: string) {
       schedule = JSON.parse(JSON.stringify(schedule));
     }
 
+    // Include nickname in selection and sort primarily by nickname
     const rawMembers = await TeamMember.find({ active: true })
-      .select("name groupName")
-      .sort({ name: 1 })
+      .select("name nickname groupName")
+      .sort({ nickname: 1, name: 1 })
       .lean();
 
     const teamMembers = rawMembers.map((m: any) => ({
       _id: String(m._id),
       name: m.name,
+      nickname: m.nickname?.trim() || "",
+      displayName: m.nickname?.trim() || m.name,
       groupName: m.groupName || "Members",
       isLeader: m.groupName === "Team Leaders",
     }));
 
-    const leaderNameSet = new Set(
-      teamMembers.filter((m: any) => m.isLeader).map((m: any) => m.name.toLowerCase())
+    // Check leadership against both name and nickname
+    const leaderIdentifierSet = new Set(
+      teamMembers
+        .filter((m: any) => m.isLeader)
+        .flatMap((m: any) => [m.name.toLowerCase(), m.displayName.toLowerCase()])
     );
 
     const annotatedAttendees = (schedule.attendees || []).map((att: any) => ({
       ...att,
-      isLeader: leaderNameSet.has(att.name?.toLowerCase()),
+      isLeader: leaderIdentifierSet.has(att.name?.toLowerCase()),
     }));
 
     const bookingStatus = checkIsMemberBookingAllowed(schedule.isRegistrationOpen);
@@ -117,17 +123,28 @@ export async function plotSundayServiceAction(payload: {
       String((session?.user as any)?.role || "").toUpperCase()
     );
 
-    const trimmedName = name.trim();
+    const trimmedInputName = name.trim();
 
-    // Check if the selected member is a registered Team Leader
-    const rawMembers = await TeamMember.find({ active: true }).select("name groupName").lean();
-    const leaderNames = rawMembers
+    // Look up member by nickname or name to standardize
+    const matchedMember = await TeamMember.findOne({
+      active: true,
+      $or: [{ nickname: trimmedInputName }, { name: trimmedInputName }],
+    }).lean();
+
+    const finalDisplayName = matchedMember?.nickname?.trim() || matchedMember?.name || trimmedInputName;
+    const finalMemberId = memberId || (matchedMember ? String(matchedMember._id) : "");
+
+    // Check leader list by nickname and name
+    const rawMembers = await TeamMember.find({ active: true }).select("name nickname groupName").lean();
+    const leaderIdentifiers = rawMembers
       .filter((m: any) => m.groupName === "Team Leaders")
-      .map((m: any) => m.name.toLowerCase());
+      .flatMap((m: any) => [m.name.toLowerCase(), (m.nickname || "").toLowerCase()])
+      .filter(Boolean);
 
-    const isCurrentPersonLeader = leaderNames.includes(trimmedName.toLowerCase());
+    const isCurrentPersonLeader =
+      leaderIdentifiers.includes(trimmedInputName.toLowerCase()) ||
+      leaderIdentifiers.includes(finalDisplayName.toLowerCase());
 
-    // Only restrict general members from booking during Monday/Tuesday/Sunday windows
     if (!isLeaderOrAdmin && !isCurrentPersonLeader) {
       const checkWindow = checkIsMemberBookingAllowed(schedule.isRegistrationOpen);
       if (!checkWindow.allowed) {
@@ -137,11 +154,15 @@ export async function plotSundayServiceAction(payload: {
 
     if (!Array.isArray(schedule.attendees)) schedule.attendees = [];
 
-    const existingIndex = schedule.attendees.findIndex(
-      (a: any) =>
-        a.name.toLowerCase() === trimmedName.toLowerCase() ||
-        (memberId && a.memberId === memberId)
-    );
+    // Find existing entry matching either nickname, full name, or memberId
+    const existingIndex = schedule.attendees.findIndex((a: any) => {
+      const attName = (a.name || "").toLowerCase();
+      return (
+        attName === trimmedInputName.toLowerCase() ||
+        attName === finalDisplayName.toLowerCase() ||
+        (finalMemberId && a.memberId === finalMemberId)
+      );
+    });
 
     if (existingIndex > -1) {
       const existing = schedule.attendees[existingIndex];
@@ -155,9 +176,9 @@ export async function plotSundayServiceAction(payload: {
 
     if (service !== "NOT_ATTENDING") {
       const currentMembersInService = schedule.attendees.filter(
-        (a: any, idx: number) => 
-          a.service === service && 
-          !leaderNames.includes(a.name.toLowerCase()) && 
+        (a: any, idx: number) =>
+          a.service === service &&
+          !leaderIdentifiers.includes(a.name.toLowerCase()) &&
           idx !== existingIndex
       ).length;
 
@@ -170,8 +191,8 @@ export async function plotSundayServiceAction(payload: {
     }
 
     const attendeeRecord = {
-      memberId: memberId || "",
-      name: trimmedName,
+      memberId: finalMemberId,
+      name: finalDisplayName,
       service,
       reason: service === "NOT_ATTENDING" ? (reason?.trim() || "Not available") : "",
       isLockedByLeader: existingIndex > -1 ? schedule.attendees[existingIndex].isLockedByLeader : false,
@@ -188,6 +209,7 @@ export async function plotSundayServiceAction(payload: {
     await schedule.save();
 
     revalidatePath("/schedule");
+    revalidatePath("/sunday-schedule");
     revalidatePath("/admin/schedule");
 
     return {
@@ -219,6 +241,7 @@ export async function toggleMemberBookingWindowAction(payload: {
     await schedule.save();
 
     revalidatePath("/schedule");
+    revalidatePath("/sunday-schedule");
     revalidatePath("/admin/schedule");
 
     return {
@@ -261,16 +284,27 @@ export async function leaderPreAssignAction(payload: {
 
     if (!Array.isArray(schedule.attendees)) schedule.attendees = [];
 
-    const trimmedName = name.trim();
-    const existingIndex = schedule.attendees.findIndex(
-      (a: any) =>
-        a.name.toLowerCase() === trimmedName.toLowerCase() ||
-        (memberId && a.memberId === memberId)
-    );
+    const trimmedInputName = name.trim();
+    const matchedMember = await TeamMember.findOne({
+      active: true,
+      $or: [{ nickname: trimmedInputName }, { name: trimmedInputName }],
+    }).lean();
+
+    const finalDisplayName = matchedMember?.nickname?.trim() || matchedMember?.name || trimmedInputName;
+    const finalMemberId = memberId || (matchedMember ? String(matchedMember._id) : "");
+
+    const existingIndex = schedule.attendees.findIndex((a: any) => {
+      const attName = (a.name || "").toLowerCase();
+      return (
+        attName === trimmedInputName.toLowerCase() ||
+        attName === finalDisplayName.toLowerCase() ||
+        (finalMemberId && a.memberId === finalMemberId)
+      );
+    });
 
     const record = {
-      memberId: memberId || "",
-      name: trimmedName,
+      memberId: finalMemberId,
+      name: finalDisplayName,
       service,
       reason: reason?.trim() || "",
       isLockedByLeader: Boolean(lock),
@@ -288,11 +322,12 @@ export async function leaderPreAssignAction(payload: {
     await schedule.save();
 
     revalidatePath("/schedule");
+    revalidatePath("/sunday-schedule");
     revalidatePath("/admin/schedule");
 
     return {
       success: true,
-      message: `${trimmedName} assigned to ${service} by ${leaderName}.`,
+      message: `${finalDisplayName} assigned to ${service} by ${leaderName}.`,
       attendee: JSON.parse(JSON.stringify(record)),
     };
   } catch (error: any) {
@@ -315,8 +350,9 @@ export async function removeAttendeeAction(payload: { sundayDate: string; name: 
 
     if (schedule) {
       if (!Array.isArray(schedule.attendees)) schedule.attendees = [];
+      const target = payload.name.toLowerCase();
       schedule.attendees = schedule.attendees.filter(
-        (a: any) => a.name.toLowerCase() !== payload.name.toLowerCase()
+        (a: any) => a.name.toLowerCase() !== target
       );
 
       schedule.markModified("attendees");
@@ -324,6 +360,7 @@ export async function removeAttendeeAction(payload: { sundayDate: string; name: 
     }
 
     revalidatePath("/schedule");
+    revalidatePath("/sunday-schedule");
     revalidatePath("/admin/schedule");
 
     return {
@@ -354,8 +391,9 @@ export async function toggleLockAttendeeAction(payload: {
       return { success: false, error: "Schedule not found." };
     }
 
+    const target = payload.name.toLowerCase();
     const attendee = schedule.attendees.find(
-      (a: any) => a.name.toLowerCase() === payload.name.toLowerCase()
+      (a: any) => a.name.toLowerCase() === target
     );
 
     if (!attendee) {
@@ -367,6 +405,7 @@ export async function toggleLockAttendeeAction(payload: {
     await schedule.save();
 
     revalidatePath("/schedule");
+    revalidatePath("/sunday-schedule");
     revalidatePath("/admin/schedule");
 
     return {

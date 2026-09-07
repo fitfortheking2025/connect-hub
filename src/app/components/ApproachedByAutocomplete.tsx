@@ -1,3 +1,4 @@
+// src/app/components/ApproachedByAutocomplete.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -6,6 +7,8 @@ import { Search, UserCheck, X, Check, Loader2 } from "lucide-react";
 interface TeamMemberItem {
   _id: string;
   name: string;
+  nickname?: string;
+  groupName?: string;
 }
 
 interface ApproachedByAutocompleteProps {
@@ -24,6 +27,11 @@ export default function ApproachedByAutocomplete({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Helper: Preferred display label is Nickname, fallback to Full Name
+  const getDisplayName = (m: TeamMemberItem) => {
+    return m.nickname?.trim() ? m.nickname.trim() : m.name;
+  };
 
   // Live fetch only when searchTerm is NOT empty
   useEffect(() => {
@@ -68,7 +76,9 @@ export default function ApproachedByAutocomplete({
   }, []);
 
   const handleSelect = (member: TeamMemberItem) => {
-    onChange(member.name);
+    // Set value as the Nickname (or Name fallback)
+    const displayName = getDisplayName(member);
+    onChange(displayName);
     setSearchTerm("");
     setSuggestions([]);
     setIsOpen(false);
@@ -106,7 +116,7 @@ export default function ApproachedByAutocomplete({
             </div>
             <div>
               <div className="text-sm font-bold text-[#111827]">{value}</div>
-              <div className="text-[10px] font-semibold text-[#FF6B00]">Connect Member</div>
+              <div className="text-[10px] font-semibold text-[#FF6B00]">Connect Minister</div>
             </div>
           </div>
           <button
@@ -126,7 +136,7 @@ export default function ApproachedByAutocomplete({
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Type approacher or leader name..."
+            placeholder="Type nickname or leader name..."
             required={required}
             className="w-full pl-11 pr-10 py-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-sm text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:bg-white transition-all"
           />
@@ -136,26 +146,34 @@ export default function ApproachedByAutocomplete({
         </div>
       )}
 
-      {/* Dynamic Dropdown: ONLY renders when user has typed and results exist */}
+      {/* Dynamic Dropdown */}
       {isOpen && !value && searchTerm.trim() !== "" && suggestions.length > 0 && (
         <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xl shadow-slate-200/60 max-h-56 overflow-y-auto z-50 divide-y divide-slate-100 animate-in fade-in slide-in-from-top-2 duration-150">
-          {suggestions.map((member) => (
-            <button
-              key={member._id}
-              type="button"
-              onClick={() => handleSelect(member)}
-              className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-orange-50/60 transition-colors group"
-            >
-              <div>
-                <div className="text-sm font-bold text-[#111827] group-hover:text-[#FF6B00] transition-colors">
-                  {member.name}
+          {suggestions.map((member) => {
+            const displayName = getDisplayName(member);
+            const hasNickname = Boolean(member.nickname?.trim() && member.nickname.trim() !== member.name);
+
+            return (
+              <button
+                key={member._id}
+                type="button"
+                onClick={() => handleSelect(member)}
+                className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-orange-50/60 transition-colors group"
+              >
+                <div className="min-w-0">
+                  {/* Primary text: Nickname */}
+                  <div className="text-sm font-extrabold text-[#111827] group-hover:text-[#FF6B00] transition-colors">
+                    {displayName}
+                  </div>
+                  {hasNickname}
                 </div>
-              </div>
-              <span className="text-xs font-bold text-[#FF6B00] opacity-0 group-hover:opacity-100 transition-opacity">
-                Select →
-              </span>
-            </button>
-          ))}
+
+                <span className="text-xs font-bold text-[#FF6B00] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
+                  Select →
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

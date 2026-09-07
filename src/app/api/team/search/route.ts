@@ -1,3 +1,4 @@
+// src/app/api/team/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import { TeamMember } from "@/models";
@@ -10,13 +11,17 @@ export async function GET(req: NextRequest) {
 
     const filter: any = { active: true };
     if (query.trim()) {
-      filter.name = { $regex: query.trim(), $options: "i" };
+      const q = query.trim();
+      filter.$or = [
+        { nickname: { $regex: q, $options: "i" } },
+        { name: { $regex: q, $options: "i" } },
+      ];
     }
 
     const members = await TeamMember.find(filter)
-      .select("name")
-      .sort({ name: 1 })
-      .limit(8)
+      .select("_id name nickname groupName")
+      .sort({ nickname: 1, name: 1 })
+      .limit(10)
       .lean();
 
     return NextResponse.json({ members });
