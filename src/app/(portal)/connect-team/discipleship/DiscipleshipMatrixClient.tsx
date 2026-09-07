@@ -16,11 +16,9 @@ import {
 const DISCIPLESHIP_CLASSES = [
   "One2One",
   "Spiritual Family Class",
-  "Purple Book Class",
   "Riverweekend / Renewed",
   "Making Disciples",
   "Empowering Leaders",
-  "Advanced Leadership",
   "Prophetic & Supernatural Level 1",
 ];
 
@@ -31,7 +29,10 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
 
   const formattedMembers = useMemo(() => {
     return initialMembers.map((m) => {
-      const completedClasses: string[] = m.discipleshipClasses || [];
+      // Filter out any deprecated classes from the stored array
+      const completedClasses: string[] = (m.discipleshipClasses || []).filter((c: string) =>
+        DISCIPLESHIP_CLASSES.includes(c)
+      );
       const count = completedClasses.length;
       const isGraduated = count === DISCIPLESHIP_CLASSES.length;
       const displayName = m.nickname?.trim() || m.name;
@@ -39,6 +40,7 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
       return {
         ...m,
         displayName,
+        completedClasses,
         completedCount: count,
         progressPercent: Math.round((count / DISCIPLESHIP_CLASSES.length) * 100),
         isGraduated,
@@ -66,14 +68,12 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
 
       if (!matchesSearch) return false;
 
-      // Status pill filtering
       if (filterStatus === "GRADUATES" && !m.isGraduated) return false;
       if (filterStatus === "IN_PROGRESS" && (m.completedCount === 0 || m.isGraduated)) return false;
       if (filterStatus === "NONE" && m.completedCount !== 0) return false;
 
-      // Filter ministers who have NOT yet finished the selected class
       if (missingClassFilter !== "ALL") {
-        const hasFinishedClass = (m.discipleshipClasses || []).includes(missingClassFilter);
+        const hasFinishedClass = (m.completedClasses || []).includes(missingClassFilter);
         if (hasFinishedClass) return false;
       }
 
@@ -85,14 +85,14 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
     <div className="space-y-4 sm:space-y-6">
       {/* 1. Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
-        <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 shadow-sm space-y-1">
+        <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1">
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Ministers</span>
           <div className="text-xl sm:text-3xl font-black text-[#111827]">{stats.total}</div>
           <p className="text-[10px] sm:text-[11px] font-bold text-slate-500">Active Connect Team</p>
         </div>
 
         <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1">
-          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-600">Graduates (8/8)</span>
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-600">Graduates (6/6)</span>
           <div className="text-xl sm:text-3xl font-black text-emerald-600">{stats.graduates}</div>
           <p className="text-[10px] sm:text-[11px] font-bold text-emerald-600">
             {stats.total > 0 ? Math.round((stats.graduates / stats.total) * 100) : 0}% Fully Trained
@@ -102,7 +102,7 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
         <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1">
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-indigo-600">In Progress</span>
           <div className="text-xl sm:text-3xl font-black text-indigo-600">{stats.inProgress}</div>
-          <p className="text-[10px] sm:text-[11px] font-bold text-indigo-600">1 to 7 classes done</p>
+          <p className="text-[10px] sm:text-[11px] font-bold text-indigo-600">1 to 5 classes done</p>
         </div>
 
         <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1">
@@ -112,13 +112,12 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
         </div>
       </div>
 
-      {/* 2. Controls: Status Pills, Missing-Class Dropdown & Search */}
+      {/* 2. Controls */}
       <div className="space-y-3">
-        {/* Status Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar select-none">
           {[
             { id: "ALL", label: `All Ministers (${stats.total})` },
-            { id: "GRADUATES", label: `Completed All 8 (${stats.graduates})` },
+            { id: "GRADUATES", label: `Completed All 6 (${stats.graduates})` },
             { id: "IN_PROGRESS", label: `In Progress (${stats.inProgress})` },
             { id: "NONE", label: `0 Classes (${stats.notStarted})` },
           ].map((tab) => (
@@ -136,7 +135,6 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
           ))}
         </div>
 
-        {/* Filter Toolbar: Search Bar + 'Needs Workshop' Dropdown */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -149,7 +147,6 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
             />
           </div>
 
-          {/* Missing Class Selector */}
           <div className="relative shrink-0 flex items-center gap-1.5">
             <div className="relative flex items-center">
               <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 pointer-events-none" />
@@ -185,7 +182,6 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
           </div>
         </div>
 
-        {/* Active Filter Helper Banner */}
         {missingClassFilter !== "ALL" && (
           <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-amber-50/80 border border-amber-200/80 text-xs text-amber-900 font-bold">
             <span>
@@ -227,7 +223,7 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
                         {m.displayName}
                       </h3>
                       {m.isGraduated && (
-                        <span className="p-0.5 rounded-full bg-emerald-100 text-emerald-600" title="Completed 8/8 Classes">
+                        <span className="p-0.5 rounded-full bg-emerald-100 text-emerald-600" title="Completed 6/6 Classes">
                           <CheckCheck className="w-3.5 h-3.5" />
                         </span>
                       )}
@@ -245,26 +241,22 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
                       : "bg-indigo-50 text-indigo-700 border border-indigo-200"
                   }`}
                 >
-                  {m.completedCount} / 8 Classes
+                  {m.completedCount} / 6 Classes
                 </span>
               </div>
 
-              {/* Progress Bar */}
-              <div className="space-y-1">
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      m.isGraduated ? "bg-emerald-500" : "bg-indigo-600"
-                    }`}
-                    style={{ width: `${m.progressPercent}%` }}
-                  />
-                </div>
+              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    m.isGraduated ? "bg-emerald-500" : "bg-indigo-600"
+                  }`}
+                  style={{ width: `${m.progressPercent}%` }}
+                />
               </div>
 
-              {/* Micro Checklist */}
               <div className="grid grid-cols-2 gap-1.5 pt-1">
                 {DISCIPLESHIP_CLASSES.map((cls) => {
-                  const done = (m.discipleshipClasses || []).includes(cls);
+                  const done = (m.completedClasses || []).includes(cls);
                   const isHighlightedNeed = missingClassFilter === cls;
 
                   return (
@@ -304,7 +296,7 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
                 {DISCIPLESHIP_CLASSES.map((cls) => (
                   <th
                     key={cls}
-                    className={`py-4 px-2 text-center max-w-[105px] leading-tight transition-colors ${
+                    className={`py-4 px-2 text-center max-w-[120px] leading-tight transition-colors ${
                       missingClassFilter === cls ? "bg-amber-100/60 text-amber-900 font-extrabold" : ""
                     }`}
                   >
@@ -316,7 +308,7 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
             <tbody className="divide-y divide-slate-100 text-xs font-medium">
               {filteredMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center text-slate-400 text-xs font-medium">
+                  <td colSpan={8} className="py-16 text-center text-slate-400 text-xs font-medium">
                     No team members found matching your filters.
                   </td>
                 </tr>
@@ -338,7 +330,7 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
                           <div className="font-extrabold text-[#111827] truncate flex items-center gap-1">
                             {m.displayName}
                             {m.isGraduated && (
-                              <span title="Completed 8/8 Classes">
+                              <span title="Completed 6/6 Classes">
                                 <Award className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                               </span>
                             )}
@@ -360,13 +352,13 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
                             : "bg-slate-100 text-slate-400"
                         }`}
                       >
-                        {m.completedCount} / 8
+                        {m.completedCount} / 6
                       </span>
                     </td>
 
-                    {/* 8 Classes Matrix Columns */}
+                    {/* 6 Classes Columns */}
                     {DISCIPLESHIP_CLASSES.map((cls) => {
-                      const completed = (m.discipleshipClasses || []).includes(cls);
+                      const completed = (m.completedClasses || []).includes(cls);
                       const isTargetedMissing = missingClassFilter === cls;
 
                       return (

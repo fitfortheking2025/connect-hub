@@ -34,11 +34,9 @@ import {
 const DISCIPLESHIP_CLASSES = [
   "One2One",
   "Spiritual Family Class",
-  "Purple Book Class",
   "Riverweekend / Renewed",
   "Making Disciples",
   "Empowering Leaders",
-  "Advanced Leadership",
   "Prophetic & Supernatural Level 1",
 ];
 
