@@ -1,8 +1,9 @@
 // src/app/(portal)/connect-team/ConnectTeamClient.tsx
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { 
   Search, 
   ShieldCheck, 
@@ -15,13 +16,27 @@ import {
   XCircle,
   X,
   Loader2,
-  Activity
+  Activity,
+  UploadCloud,
+  Mail,
+  Award
 } from "lucide-react";
 import { 
   createTeamMemberAction, 
   updateTeamMemberAction, 
   toggleMemberActiveStatusAction 
 } from "@/app/actions/teamMemberActions";
+
+const DISCIPLESHIP_CLASSES = [
+  "One2One",
+  "Spiritual Family Class",
+  "Purple Book Class",
+  "Riverweekend / Renewed",
+  "Making Disciples",
+  "Empowering Leaders",
+  "Advanced Leadership",
+  "Prophetic & Supernatural Level 1",
+];
 
 interface ConnectTeamClientProps {
   initialData: any[];
@@ -51,12 +66,30 @@ export default function ConnectTeamClient({
 
   // Modal State
   const [modalMode, setModalMode] = useState<"ADD" | "EDIT" | null>(null);
+  const [activeTab, setActiveTab] = useState<"info" | "discipleship">("info");
   const [activeItem, setActiveItem] = useState<any>(null);
+
+  // Form Fields (Google Form Alignment)
   const [formName, setFormName] = useState("");
-  const [formGroup, setFormGroup] = useState<"Team Leaders" | "Members">("Members");
-  const [formContact, setFormContact] = useState("");
+  const [formNickname, setFormNickname] = useState("");
+  const [formGender, setFormGender] = useState<"Male" | "Female">("Male");
+  const [formBirthdate, setFormBirthdate] = useState("");
+  const [formContactNumber, setFormContactNumber] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formSocialMedia, setFormSocialMedia] = useState("");
+  const [formGroup, setFormGroup] = useState<"Team Leaders" | "Follow Up Team" | "Members">("Members");
   const [formAssignedUserId, setFormAssignedUserId] = useState<string>("");
   const [formActive, setFormActive] = useState(true);
+
+  // Discipleship Fields
+  const [formDiscipler, setFormDiscipler] = useState("");
+  const [formDisciples, setFormDisciples] = useState("");
+  const [formClasses, setFormClasses] = useState<string[]>([]);
+  const [formIsPartOfOutreach, setFormIsPartOfOutreach] = useState(false);
+
+  // Photo State
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [base64Photo, setBase64Photo] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,15 +106,45 @@ export default function ConnectTeamClient({
     });
   };
 
+  const handlePhotoSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 8 * 1024 * 1024) {
+      setFormError("File size exceeds 8MB limit.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      setPhotoPreview(result);
+      setBase64Photo(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleOpenAdd = () => {
     if (!isAdmin) return;
     setActiveItem(null);
     setFormName("");
+    setFormNickname("");
+    setFormGender("Male");
+    setFormBirthdate("");
+    setFormContactNumber("");
+    setFormEmail("");
+    setFormSocialMedia("");
     setFormGroup("Members");
-    setFormContact("");
     setFormAssignedUserId("");
     setFormActive(true);
+    setFormDiscipler("");
+    setFormDisciples("");
+    setFormClasses([]);
+    setFormIsPartOfOutreach(false);
+    setPhotoPreview(null);
+    setBase64Photo(null);
     setFormError(null);
+    setActiveTab("info");
     setModalMode("ADD");
   };
 
@@ -89,30 +152,65 @@ export default function ConnectTeamClient({
     if (!isAdmin) return;
     setActiveItem(member);
     setFormName(member.name || "");
-    setFormGroup(member.groupName === "Team Leaders" ? "Team Leaders" : "Members");
-    setFormContact(member.contact || "");
+    setFormNickname(member.nickname || "");
+    setFormGender(member.gender || "Male");
+    setFormBirthdate(member.birthdate ? new Date(member.birthdate).toISOString().split("T")[0] : "");
+    setFormContactNumber(member.contactNumber || member.contact || "");
+    setFormEmail(member.email || "");
+    setFormSocialMedia(member.socialMedia || "");
+    setFormGroup(member.groupName || "Members");
     setFormAssignedUserId(member.assignedUserId ? String(member.assignedUserId) : "");
     setFormActive(member.active ?? true);
+    setFormDiscipler(member.discipler || "");
+    setFormDisciples((member.disciples || []).join("\n"));
+    setFormClasses(member.discipleshipClasses || []);
+    setFormIsPartOfOutreach(member.isPartOfOutreach || false);
+    setPhotoPreview(member.photoUrl || null);
+    setBase64Photo(null);
     setFormError(null);
+    setActiveTab("info");
     setModalMode("EDIT");
+  };
+
+  const toggleClassCheckbox = (clsName: string) => {
+    setFormClasses((prev) =>
+      prev.includes(clsName) ? prev.filter((c) => c !== clsName) : [...prev, clsName]
+    );
   };
 
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) {
-      setFormError("Name is required.");
+      setFormError("Full Name is required.");
       return;
     }
 
+    const disciplesArray = formDisciples
+      .split("\n")
+      .map((d) => d.trim())
+      .filter(Boolean);
+
     startTransition(async () => {
+      const payload = {
+        name: formName,
+        nickname: formNickname,
+        gender: formGender,
+        birthdate: formBirthdate || undefined,
+        contactNumber: formContactNumber,
+        email: formEmail,
+        socialMedia: formSocialMedia,
+        base64Photo: base64Photo || undefined,
+        groupName: formGroup,
+        assignedUserId: formAssignedUserId || null,
+        active: formActive,
+        discipler: formDiscipler,
+        disciples: disciplesArray,
+        discipleshipClasses: formClasses,
+        isPartOfOutreach: formIsPartOfOutreach,
+      };
+
       if (modalMode === "ADD") {
-        const res = await createTeamMemberAction({
-          name: formName,
-          groupName: formGroup,
-          contact: formContact,
-          assignedUserId: formAssignedUserId || null,
-          active: formActive,
-        });
+        const res = await createTeamMemberAction(payload);
         if (res.success) {
           setData((prev) => [...prev, res.member]);
           setModalMode(null);
@@ -121,18 +219,9 @@ export default function ConnectTeamClient({
           setFormError(res.error || "Failed to add member.");
         }
       } else if (modalMode === "EDIT" && activeItem) {
-        const res = await updateTeamMemberAction({
-          id: activeItem._id,
-          name: formName,
-          groupName: formGroup,
-          contact: formContact,
-          assignedUserId: formAssignedUserId || null,
-          active: formActive,
-        });
+        const res = await updateTeamMemberAction({ ...payload, id: activeItem._id });
         if (res.success) {
-          setData((prev) =>
-            prev.map((m) => (m._id === activeItem._id ? res.member : m))
-          );
+          setData((prev) => prev.map((m) => (m._id === activeItem._id ? res.member : m)));
           setModalMode(null);
           router.refresh();
         } else {
@@ -156,7 +245,6 @@ export default function ConnectTeamClient({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      
       {/* 1. Header Action & Statistics */}
       <div className="flex items-center justify-between gap-3">
         <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -172,7 +260,7 @@ export default function ConnectTeamClient({
         )}
       </div>
 
-      {/* 2. 2x2 Metric Grid */}
+      {/* 2. Metric Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
         <div className="bg-white rounded-[20px] sm:rounded-[24px] border border-slate-200/80 p-3.5 sm:p-5 space-y-1.5 sm:space-y-3 shadow-sm">
           <div className="flex items-center justify-between">
@@ -236,45 +324,22 @@ export default function ConnectTeamClient({
       {/* 3. Filter Pills & Search Bar */}
       <div className="space-y-2.5">
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar select-none">
-          <button
-            onClick={() => {
-              setSelectedGroup("ALL");
-              updateFilters("ALL", search);
-            }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all shrink-0 active:scale-95 ${
-              selectedGroup === "ALL"
-                ? "bg-[#FF6B00] text-white shadow-md shadow-orange-500/20"
-                : "bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50"
-            }`}
-          >
-            All Roles
-          </button>
-          <button
-            onClick={() => {
-              setSelectedGroup("Team Leaders");
-              updateFilters("Team Leaders", search);
-            }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all shrink-0 active:scale-95 ${
-              selectedGroup === "Team Leaders"
-                ? "bg-[#FF6B00] text-white shadow-md shadow-orange-500/20"
-                : "bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50"
-            }`}
-          >
-            Leaders ({stats.leaders})
-          </button>
-          <button
-            onClick={() => {
-              setSelectedGroup("Members");
-              updateFilters("Members", search);
-            }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all shrink-0 active:scale-95 ${
-              selectedGroup === "Members"
-                ? "bg-[#FF6B00] text-white shadow-md shadow-orange-500/20"
-                : "bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50"
-            }`}
-          >
-            Members ({stats.total - stats.leaders})
-          </button>
+          {["ALL", "Team Leaders", "Members"].map((group) => (
+            <button
+              key={group}
+              onClick={() => {
+                setSelectedGroup(group);
+                updateFilters(group, search);
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all shrink-0 active:scale-95 ${
+                selectedGroup === group
+                  ? "bg-[#FF6B00] text-white shadow-md shadow-orange-500/20"
+                  : "bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50"
+              }`}
+            >
+              {group === "ALL" ? "All Roles" : group}
+            </button>
+          ))}
         </div>
 
         <form
@@ -289,13 +354,13 @@ export default function ConnectTeamClient({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search minister name, phone..."
+            placeholder="Search minister name, nickname, contact..."
             className="w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-[20px] bg-white border border-slate-200/80 text-xs sm:text-sm font-medium text-[#111827] placeholder-slate-400 focus:outline-none focus:border-[#FF6B00] shadow-sm"
           />
         </form>
       </div>
 
-      {/* 4. Mobile Compact Cards View */}
+      {/* 4. Mobile Cards */}
       <div className="md:hidden space-y-2">
         {data.length === 0 ? (
           <div className="bg-white rounded-[20px] border border-slate-200/80 p-8 text-center text-slate-400 text-xs font-medium">
@@ -304,6 +369,7 @@ export default function ConnectTeamClient({
         ) : (
           data.map((member: any) => {
             const isLeader = member.groupName === "Team Leaders";
+            const contact = member.contactNumber || member.contact;
 
             return (
               <div
@@ -311,33 +377,42 @@ export default function ConnectTeamClient({
                 className="bg-white rounded-[18px] border border-slate-200/80 p-3 shadow-sm flex items-center justify-between gap-2.5"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div
-                    className={`h-8 w-8 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 shadow-sm ${
-                      isLeader
-                        ? "bg-gradient-to-br from-amber-500 to-orange-500 shadow-orange-500/20"
-                        : "bg-slate-700"
-                    }`}
-                  >
-                    {member.name.charAt(0).toUpperCase()}
+                  <div className="relative h-10 w-10 rounded-xl overflow-hidden shrink-0 border border-slate-100 bg-slate-100">
+                    {member.photoUrl ? (
+                      <Image
+                        src={member.photoUrl}
+                        alt={member.name}
+                        fill
+                        sizes="40px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className={`h-full w-full flex items-center justify-center font-black text-xs text-white ${
+                        isLeader ? "bg-gradient-to-br from-amber-500 to-orange-500" : "bg-slate-700"
+                      }`}>
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                   </div>
+
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <h3 className="font-extrabold text-xs text-[#111827] truncate">
                         {member.name}
                       </h3>
-                      {isLeader && (
-                        <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-orange-50 text-[#FF6B00] border border-orange-200/60 shrink-0">
-                          Leader
+                      {member.nickname && (
+                        <span className="text-[10px] text-slate-400 font-semibold truncate">
+                          ({member.nickname})
                         </span>
                       )}
                     </div>
-                    {member.contact ? (
+                    {contact ? (
                       <a
-                        href={`tel:${member.contact}`}
+                        href={`tel:${contact}`}
                         className="inline-flex items-center gap-1 text-[11px] font-mono font-bold text-slate-500 hover:text-emerald-600 mt-0.5"
                       >
                         <Phone className="w-2.5 h-2.5 text-emerald-600" />
-                        {member.contact}
+                        {contact}
                       </a>
                     ) : (
                       <span className="text-[10px] text-slate-300 italic">No contact</span>
@@ -355,21 +430,14 @@ export default function ConnectTeamClient({
                         : "bg-rose-50 text-rose-500 border border-rose-200"
                     } ${!isAdmin ? "cursor-default opacity-80" : "active:scale-95"}`}
                   >
-                    {member.active ? (
-                      <>
-                        <CheckCircle2 className="w-3 h-3" /> Active
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="w-3 h-3" /> Inactive
-                      </>
-                    )}
+                    {member.active ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    {member.active ? "Active" : "Inactive"}
                   </button>
 
                   {isAdmin && (
                     <button
                       onClick={() => handleOpenEdit(member)}
-                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00] transition-colors active:scale-90"
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00] transition-colors"
                       title="Edit Member"
                     >
                       <Pencil className="w-3 h-3" />
@@ -388,9 +456,10 @@ export default function ConnectTeamClient({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <th className="py-4 px-6">Minister Name</th>
+                <th className="py-4 px-6">Minister</th>
                 <th className="py-4 px-6">Role / Group</th>
-                <th className="py-4 px-6">Contact Number</th>
+                <th className="py-4 px-6">Contact & Email</th>
+                <th className="py-4 px-6">Discipleship</th>
                 <th className="py-4 px-4 text-center">Status</th>
                 {isAdmin && <th className="py-4 px-4 text-center">Action</th>}
               </tr>
@@ -398,28 +467,42 @@ export default function ConnectTeamClient({
             <tbody className="divide-y divide-slate-100 text-sm font-medium">
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 5 : 4} className="py-16 text-center text-slate-400 text-xs font-medium">
+                  <td colSpan={isAdmin ? 6 : 5} className="py-16 text-center text-slate-400 text-xs font-medium">
                     No team members match your criteria.
                   </td>
                 </tr>
               ) : (
                 data.map((member: any) => {
                   const isLeader = member.groupName === "Team Leaders";
+                  const contact = member.contactNumber || member.contact;
 
                   return (
                     <tr key={member._id} className="hover:bg-blue-50/20 transition-colors">
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`h-9 w-9 rounded-xl flex items-center justify-center font-black text-xs text-white shadow-sm ${
-                              isLeader
-                                ? "bg-gradient-to-br from-amber-500 to-orange-500 shadow-orange-500/20"
-                                : "bg-slate-700"
-                            }`}
-                          >
-                            {member.name.charAt(0).toUpperCase()}
+                          <div className="relative h-10 w-10 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100 shadow-sm">
+                            {member.photoUrl ? (
+                              <Image
+                                src={member.photoUrl}
+                                alt={member.name}
+                                fill
+                                sizes="40px"
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className={`h-full w-full flex items-center justify-center font-black text-xs text-white ${
+                                isLeader ? "bg-gradient-to-br from-amber-500 to-orange-500" : "bg-slate-700"
+                              }`}>
+                                {member.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
                           </div>
-                          <span className="font-extrabold text-[#111827]">{member.name}</span>
+                          <div>
+                            <span className="font-extrabold text-[#111827] block leading-tight">{member.name}</span>
+                            {member.nickname && (
+                              <span className="text-xs text-slate-400 font-semibold">"{member.nickname}"</span>
+                            )}
+                          </div>
                         </div>
                       </td>
 
@@ -436,17 +519,39 @@ export default function ConnectTeamClient({
                       </td>
 
                       <td className="py-4 px-6">
-                        {member.contact ? (
-                          <a
-                            href={`tel:${member.contact}`}
-                            className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700 hover:text-emerald-600"
-                          >
-                            <Phone className="w-3 h-3 text-emerald-600" />
-                            {member.contact}
-                          </a>
-                        ) : (
-                          <span className="text-[11px] text-slate-300 italic">No contact</span>
-                        )}
+                        <div className="space-y-0.5">
+                          {contact ? (
+                            <a
+                              href={`tel:${contact}`}
+                              className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700 hover:text-emerald-600"
+                            >
+                              <Phone className="w-3 h-3 text-emerald-600" />
+                              {contact}
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-slate-300 italic block">No phone</span>
+                          )}
+                          {member.email && (
+                            <span className="text-xs text-slate-400 flex items-center gap-1">
+                              <Mail className="w-3 h-3" /> {member.email}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-6">
+                        <div className="text-xs">
+                          {member.discipler && (
+                            <span className="text-slate-600 font-medium block">
+                              <strong className="text-slate-400 font-bold">Discipler:</strong> {member.discipler}
+                            </span>
+                          )}
+                          {member.discipleshipClasses?.length > 0 && (
+                            <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full inline-block mt-0.5">
+                              {member.discipleshipClasses.length} workshops completed
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-4 px-4 text-center">
@@ -491,17 +596,18 @@ export default function ConnectTeamClient({
         </div>
       </div>
 
-      {/* 6. Add / Edit Member Modal */}
+      {/* 6. Comprehensive Add / Edit Member Modal */}
       {modalMode && isAdmin && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-white rounded-[28px] border border-slate-200 shadow-2xl p-6 space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-xl max-h-[90vh] bg-white rounded-[28px] border border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-orange-50 text-[#FF6B00]">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <h3 className="font-black text-lg text-[#111827]">
-                  {modalMode === "ADD" ? "Add New Minister" : "Edit Minister"}
+                  {modalMode === "ADD" ? "Register Connect Member" : "Edit Member Profile"}
                 </h3>
               </div>
               <button
@@ -512,77 +618,257 @@ export default function ConnectTeamClient({
               </button>
             </div>
 
-            {formError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600">
-                {formError}
-              </div>
-            )}
+            {/* Modal Tabs */}
+            <div className="flex border-b border-slate-100 bg-slate-50/60 px-5 pt-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab("info")}
+                className={`pb-2 px-3 text-xs font-extrabold border-b-2 transition-all ${
+                  activeTab === "info"
+                    ? "border-[#FF6B00] text-[#FF6B00]"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                Personal & Contact Info
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("discipleship")}
+                className={`pb-2 px-3 text-xs font-extrabold border-b-2 transition-all ${
+                  activeTab === "discipleship"
+                    ? "border-[#FF6B00] text-[#FF6B00]"
+                    : "border-transparent text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                Discipleship & Workshops
+              </button>
+            </div>
 
-            <form onSubmit={handleSaveModal} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full Name</label>
-                <input
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="e.g. Bro. Cris"
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Role / Group</label>
-                  <select
-                    value={formGroup}
-                    onChange={(e) => setFormGroup(e.target.value as "Team Leaders" | "Members")}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                  >
-                    <option value="Members">Members</option>
-                    <option value="Team Leaders">Team Leaders</option>
-                  </select>
+            {/* Modal Form */}
+            <form onSubmit={handleSaveModal} className="flex-1 overflow-y-auto p-5 space-y-4">
+              {formError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600">
+                  {formError}
                 </div>
+              )}
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Linked Portal Account</label>
-                  <select
-                    value={formAssignedUserId}
-                    onChange={(e) => setFormAssignedUserId(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                  >
-                    <option value="">None (Unlinked)</option>
-                    {users.map((u) => (
-                      <option key={u._id} value={u._id}>
-                        {u.fullName || u.username} ({u.role})
-                      </option>
-                    ))}
-                  </select>
+              {activeTab === "info" ? (
+                <div className="space-y-3.5">
+                  {/* Photo Upload Box */}
+                  <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                    <div className="relative h-16 w-16 rounded-2xl overflow-hidden border bg-white shrink-0 flex items-center justify-center shadow-sm">
+                      {photoPreview ? (
+                        <Image src={photoPreview} alt="Preview" fill className="object-cover" />
+                      ) : (
+                        <Users className="w-6 h-6 text-slate-300" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        Birthday / Greeting Picture
+                      </label>
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100 shadow-sm transition-all">
+                        <UploadCloud className="w-3.5 h-3.5 text-[#FF6B00]" /> Choose Photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoSelect}
+                          className="hidden"
+                        />
+                      </label>
+                      <span className="text-[10px] text-slate-400 block">Square photos recommended (Max 8MB)</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full Name *</label>
+                      <input
+                        type="text"
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        placeholder="Juan Dela Cruz"
+                        required
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nickname</label>
+                      <input
+                        type="text"
+                        value={formNickname}
+                        onChange={(e) => setFormNickname(e.target.value)}
+                        placeholder="e.g. Bro Juan"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gender</label>
+                      <select
+                        value={formGender}
+                        onChange={(e) => setFormGender(e.target.value as "Male" | "Female")}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Birthdate</label>
+                      <input
+                        type="date"
+                        value={formBirthdate}
+                        onChange={(e) => setFormBirthdate(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact Number</label>
+                      <input
+                        type="text"
+                        value={formContactNumber}
+                        onChange={(e) => setFormContactNumber(e.target.value)}
+                        placeholder="0917XXXXXXX"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Email Address</label>
+                      <input
+                        type="email"
+                        value={formEmail}
+                        onChange={(e) => setFormEmail(e.target.value)}
+                        placeholder="juan@gmail.com"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Social Media (FB / IG)</label>
+                    <input
+                      type="text"
+                      value={formSocialMedia}
+                      onChange={(e) => setFormSocialMedia(e.target.value)}
+                      placeholder="e.g. facebook.com/juandelacruz"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Roster Role</label>
+                      <select
+                        value={formGroup}
+                        onChange={(e) => setFormGroup(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                      >
+                        <option value="Members">Members</option>
+                        <option value="Team Leaders">Team Leaders</option>
+                        <option value="Follow Up Team">Follow Up Team</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Portal User Link</label>
+                      <select
+                        value={formAssignedUserId}
+                        onChange={(e) => setFormAssignedUserId(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                      >
+                        <option value="">None (Unlinked)</option>
+                        {users.map((u) => (
+                          <option key={u._id} value={u._id}>
+                            {u.fullName || u.username} ({u.role})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 pt-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={formActive}
+                      onChange={(e) => setFormActive(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#FF6B00] focus:ring-[#FF6B00]"
+                    />
+                    <span className="text-xs font-bold text-slate-700">Active Connect Member</span>
+                  </label>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3.5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Discipler</label>
+                    <input
+                      type="text"
+                      value={formDiscipler}
+                      onChange={(e) => setFormDiscipler(e.target.value)}
+                      placeholder="Name of your discipler"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                    />
+                  </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact Number</label>
-                <input
-                  type="text"
-                  value={formContact}
-                  onChange={(e) => setFormContact(e.target.value)}
-                  placeholder="0917XXXXXXX"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                />
-              </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Disciple(s)</label>
+                    <textarea
+                      rows={2}
+                      value={formDisciples}
+                      onChange={(e) => setFormDisciples(e.target.value)}
+                      placeholder="Put each disciple on a new line..."
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
+                    />
+                  </div>
 
-              <label className="flex items-center gap-2.5 pt-1 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={formActive}
-                  onChange={(e) => setFormActive(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#FF6B00] focus:ring-[#FF6B00]"
-                />
-                <span className="text-xs font-bold text-slate-700">Active Minister</span>
-              </label>
+                  <div className="space-y-2 pt-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                      <Award className="w-3 h-3 text-indigo-500" /> Discipleship Classes & Workshops
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+                      {DISCIPLESHIP_CLASSES.map((cls) => {
+                        const checked = formClasses.includes(cls);
+                        return (
+                          <label
+                            key={cls}
+                            className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                              checked
+                                ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                                : "bg-white border-slate-200/70 text-slate-600 hover:bg-slate-100"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleClassCheckbox(cls)}
+                              className="w-3.5 h-3.5 rounded text-indigo-600"
+                            />
+                            <span className="truncate">{cls}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-              <div className="pt-2 flex gap-2">
+                  <label className="flex items-center gap-2 pt-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={formIsPartOfOutreach}
+                      onChange={(e) => setFormIsPartOfOutreach(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#FF6B00] focus:ring-[#FF6B00]"
+                    />
+                    <span className="text-xs font-bold text-slate-700">Part of an Outreach Ministry</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Modal Footer */}
+              <div className="pt-4 border-t border-slate-100 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setModalMode(null)}
@@ -602,7 +888,6 @@ export default function ConnectTeamClient({
           </div>
         </div>
       )}
-
     </div>
   );
 }

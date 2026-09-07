@@ -1,3 +1,4 @@
+// src/app/(portal)/connect-team/page.tsx
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { TeamMember, User } from "@/models";
@@ -35,7 +36,9 @@ export default async function ConnectTeamPage({ searchParams }: PageProps) {
     const s = params.search.trim();
     query.$or = [
       { name: { $regex: s, $options: "i" } },
-      { contact: { $regex: s, $options: "i" } },
+      { nickname: { $regex: s, $options: "i" } },
+      { contactNumber: { $regex: s, $options: "i" } },
+      { contact: { $regex: s, $options: "i" } }, // Backward compatibility with older records
     ];
   }
 
