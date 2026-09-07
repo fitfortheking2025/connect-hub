@@ -22,6 +22,12 @@ const DISCIPLESHIP_CLASSES = [
   "Prophetic & Supernatural Level 1",
 ];
 
+// Helper to normalize any historical class labels saved in the database
+const normalizeClass = (name: string): string => {
+  if (name === "Riverweekend / Renewed") return "River Encounter";
+  return name;
+};
+
 export default function DiscipleshipMatrixClient({ initialMembers = [] }: { initialMembers: any[] }) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"ALL" | "GRADUATES" | "IN_PROGRESS" | "NONE">("ALL");
@@ -29,10 +35,12 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
 
   const formattedMembers = useMemo(() => {
     return initialMembers.map((m) => {
-      // Filter out any deprecated classes from the stored array
-      const completedClasses: string[] = (m.discipleshipClasses || []).filter((c: string) =>
-        DISCIPLESHIP_CLASSES.includes(c)
+      // Normalize past names and filter out any inactive classes
+      const rawClasses: string[] = (m.discipleshipClasses || []).map(normalizeClass);
+      const completedClasses: string[] = Array.from(
+        new Set(rawClasses.filter((c: string) => DISCIPLESHIP_CLASSES.includes(c)))
       );
+
       const count = completedClasses.length;
       const isGraduated = count === DISCIPLESHIP_CLASSES.length;
       const displayName = m.nickname?.trim() || m.name;
@@ -356,7 +364,6 @@ export default function DiscipleshipMatrixClient({ initialMembers = [] }: { init
                       </span>
                     </td>
 
-                    {/* 6 Classes Columns */}
                     {DISCIPLESHIP_CLASSES.map((cls) => {
                       const completed = (m.completedClasses || []).includes(cls);
                       const isTargetedMissing = missingClassFilter === cls;
