@@ -8,7 +8,7 @@ import { CheckCircle2, Loader2, Award, User, BookOpen, Lock } from "lucide-react
 const DISCIPLESHIP_CLASSES = [
   "One2One",
   "Spiritual Family Class",
-  "Riverweekend / Renewed",
+  "River Encounter",
   "Making Disciples",
   "Empowering Leaders",
   "Prophetic & Supernatural Level 1",
