@@ -3,6 +3,7 @@
 
 import { useState, useTransition, useEffect, ChangeEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { 
   Search, 
@@ -21,7 +22,8 @@ import {
   Mail,
   Award,
   Link2,
-  Check
+  Check,
+  GraduationCap
 } from "lucide-react";
 import { 
   createTeamMemberAction, 
@@ -264,14 +266,25 @@ export default function ConnectTeamClient({
         <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
           Roster Overview
         </div>
-        {isAdmin && (
-          <button
-            onClick={handleOpenAdd}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black shadow-md shadow-orange-500/20 transition-all active:scale-95"
+        <div className="flex items-center gap-2">
+          {/* Discipleship Matrix Link */}
+          <Link
+            href="/connect-team/discipleship"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-black border border-indigo-200/80 transition-all active:scale-95 shadow-xs"
           >
-            <Plus className="w-3.5 h-3.5" /> Add Minister
-          </button>
-        )}
+            <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Discipleship Matrix</span>
+          </Link>
+
+          {isAdmin && (
+            <button
+              onClick={handleOpenAdd}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black shadow-md shadow-orange-500/20 transition-all active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Minister
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 2. Metric Grid */}
@@ -443,7 +456,6 @@ export default function ConnectTeamClient({
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {/* Copy Link Button */}
                   <button
                     onClick={() => handleCopyLink(member)}
                     className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
@@ -622,7 +634,6 @@ export default function ConnectTeamClient({
                       {isAdmin && (
                         <td className="py-4 px-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
-                            {/* Copy Link Button */}
                             <button
                               onClick={() => handleCopyLink(member)}
                               className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
@@ -654,11 +665,10 @@ export default function ConnectTeamClient({
         </div>
       </div>
 
-      {/* 6. Comprehensive Add / Edit Member Modal */}
+      {/* 6. Add / Edit Member Modal */}
       {modalMode && isAdmin && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-xl max-h-[90vh] bg-white rounded-[28px] border border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95">
-            {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-orange-50 text-[#FF6B00]">
@@ -676,7 +686,6 @@ export default function ConnectTeamClient({
               </button>
             </div>
 
-            {/* Modal Tabs */}
             <div className="flex border-b border-slate-100 bg-slate-50/60 px-5 pt-2">
               <button
                 type="button"
@@ -702,7 +711,6 @@ export default function ConnectTeamClient({
               </button>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={handleSaveModal} className="flex-1 overflow-y-auto p-5 space-y-4">
               {formError && (
                 <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600">
@@ -712,7 +720,6 @@ export default function ConnectTeamClient({
 
               {activeTab === "info" ? (
                 <div className="space-y-3.5">
-                  {/* Photo Upload Box */}
                   <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
                     <div className="relative h-16 w-16 rounded-2xl overflow-hidden border bg-white shrink-0 flex items-center justify-center shadow-sm">
                       {photoPreview ? (
@@ -925,7 +932,6 @@ export default function ConnectTeamClient({
                 </div>
               )}
 
-              {/* Modal Footer */}
               <div className="pt-4 border-t border-slate-100 flex gap-2">
                 <button
                   type="button"

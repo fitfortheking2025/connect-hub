@@ -50,7 +50,7 @@ export default async function MemberSelfPage({ params }: PageProps) {
           <div className="min-w-0">
             <h2 className="font-black text-sm text-slate-900 truncate">{member.name}</h2>
             <p className="text-xs font-semibold text-slate-400">
-              {member.groupName || "Member"}
+              {member.groupName === "Team Leaders" ? "Leader" : "Member"}
             </p>
           </div>
         </div>
