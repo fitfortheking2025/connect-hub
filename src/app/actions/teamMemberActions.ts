@@ -155,3 +155,54 @@ export async function toggleMemberActiveStatusAction(id: string, currentStatus: 
     return { success: false, error: error.message };
   }
 }
+
+export async function getMonthlyBirthdayCelebrantsAction(targetMonth?: number) {
+  try {
+    await dbConnect();
+
+    // Default to current month (1-12) if not specified
+    const currentMonth = targetMonth || new Date().getMonth() + 1;
+
+    // Use MongoDB aggregation $expr with $month to match birthdate month
+    const celebrants = await TeamMember.aggregate([
+      {
+        $match: {
+          active: true,
+          birthdate: { $exists: true, $ne: null },
+          $expr: {
+            $eq: [{ $month: "$birthdate" }, currentMonth],
+          },
+        },
+      },
+      {
+        // Extract day for chronological sorting
+        $addFields: {
+          birthDay: { $dayOfMonth: "$birthdate" },
+        },
+      },
+      {
+        $sort: { birthDay: 1, name: 1 },
+      },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          nickname: 1,
+          groupName: 1,
+          photoUrl: 1,
+          birthdate: 1,
+          birthDay: 1,
+          contactNumber: 1,
+        },
+      },
+    ]);
+
+    return {
+      success: true,
+      month: currentMonth,
+      celebrants: JSON.parse(JSON.stringify(celebrants)),
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message, celebrants: [] };
+  }
+}

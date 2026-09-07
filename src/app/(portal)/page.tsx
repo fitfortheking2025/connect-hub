@@ -1,3 +1,4 @@
+// src/app/(portal)/dashboard/page.tsx
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { FirstTimer, TeamMember } from "@/models";
@@ -12,10 +13,10 @@ import {
   MessageSquare,
   UserCheck,
   ChevronRight,
-  Sparkles,
   Flame,
   Activity
 } from "lucide-react";
+import MonthlyBirthdaysWidget from "@/app/components/MonthlyBirthdaysWidget";
 
 export default async function DashboardPage() {
   await auth();
@@ -122,7 +123,10 @@ export default async function DashboardPage() {
 
       </div>
 
-      {/* 3. Recent VIP Logs */}
+      {/* 3. Monthly Birthday Celebrants Widget */}
+      <MonthlyBirthdaysWidget allMembers={JSON.parse(JSON.stringify(teamMembers))} />
+
+      {/* 4. Recent VIP Logs */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
