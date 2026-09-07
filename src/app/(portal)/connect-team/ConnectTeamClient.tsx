@@ -601,7 +601,7 @@ export default function ConnectTeamClient({
                           )}
                           {member.discipleshipClasses?.length > 0 && (
                             <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full inline-block mt-0.5">
-                              {member.discipleshipClasses.length} workshops completed
+                              {member.discipleshipClasses.length}/6 workshops completed
                             </span>
                           )}
                         </div>
