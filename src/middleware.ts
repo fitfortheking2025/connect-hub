@@ -1,3 +1,4 @@
+// middleware.ts
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth.config";
 import { NextResponse } from "next/server";
@@ -12,13 +13,10 @@ export default auth((req) => {
   const isAuthPage = nextUrl.pathname === "/login";
   const isPublicIntake = nextUrl.pathname.startsWith("/intake");
   const isPublicSchedule = nextUrl.pathname.startsWith("/schedule");
+  const isPublicConnectMember = nextUrl.pathname.startsWith("/connect-member"); // Allow public member updates
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
 
-  if (isPublicSchedule) {
-    return NextResponse.next();
-  }
-
-  if (isPublicIntake) {
+  if (isPublicSchedule || isPublicIntake || isPublicConnectMember) {
     return NextResponse.next();
   }
 

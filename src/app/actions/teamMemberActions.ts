@@ -6,6 +6,7 @@ import { TeamMember } from "@/models";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { uploadMemberPhotoAction } from "./uploadAction";
+import { generateUpdateCode } from "@/models/TeamMember";
 
 export interface TeamMemberPayload {
   name: string;
@@ -60,6 +61,7 @@ export async function createTeamMemberAction(data: TeamMemberPayload) {
       socialMedia: data.socialMedia?.trim(),
       photoUrl,
       cloudinaryPublicId,
+      updateCode: generateUpdateCode(),
       groupName: data.groupName || "Members",
       assignedUserId: data.assignedUserId || null,
       active: data.active ?? true,
@@ -98,6 +100,7 @@ export async function updateTeamMemberAction(data: TeamMemberPayload & { id: str
       contactNumber: data.contactNumber?.trim() || data.contact?.trim() || "",
       email: data.email?.trim().toLowerCase(),
       socialMedia: data.socialMedia?.trim(),
+      updateCode: generateUpdateCode(),
       groupName: data.groupName || "Members",
       assignedUserId: data.assignedUserId || null,
       active: Boolean(data.active),

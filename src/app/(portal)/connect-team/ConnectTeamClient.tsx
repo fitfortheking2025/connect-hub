@@ -19,7 +19,9 @@ import {
   Activity,
   UploadCloud,
   Mail,
-  Award
+  Award,
+  Link2,
+  Check
 } from "lucide-react";
 import { 
   createTeamMemberAction, 
@@ -64,6 +66,9 @@ export default function ConnectTeamClient({
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [selectedGroup, setSelectedGroup] = useState(searchParams.get("group") || "ALL");
 
+  // Copy Link Feedback State
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
   // Modal State
   const [modalMode, setModalMode] = useState<"ADD" | "EDIT" | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "discipleship">("info");
@@ -104,6 +109,15 @@ export default function ConnectTeamClient({
     startTransition(() => {
       router.push(`/connect-team?${params.toString()}`);
     });
+  };
+
+  const handleCopyLink = (member: any) => {
+    const targetCode = member.updateCode || member._id;
+    if (!targetCode) return;
+    const url = `${window.location.origin}/connect-member/${targetCode}`;
+    navigator.clipboard.writeText(url);
+    setCopiedCode(targetCode);
+    setTimeout(() => setCopiedCode(null), 2000);
   };
 
   const handlePhotoSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -370,6 +384,7 @@ export default function ConnectTeamClient({
           data.map((member: any) => {
             const isLeader = member.groupName === "Team Leaders";
             const contact = member.contactNumber || member.contact;
+            const targetCode = member.updateCode || member._id;
 
             return (
               <div
@@ -400,10 +415,17 @@ export default function ConnectTeamClient({
                       <h3 className="font-extrabold text-xs text-[#111827] truncate">
                         {member.name}
                       </h3>
-                      {member.nickname && (
-                        <span className="text-[10px] text-slate-400 font-semibold truncate">
-                          ({member.nickname})
+                      {isLeader ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-50 to-amber-50 text-[#FF6B00] border border-orange-200/70 whitespace-nowrap shrink-0">
+                          <ShieldCheck className="w-2.5 h-2.5 text-[#FF6B00]" />
+                          Leader
                         </span>
+                      ) : (
+                        member.nickname && (
+                          <span className="text-[10px] text-slate-400 font-semibold truncate">
+                            ({member.nickname})
+                          </span>
+                        )
                       )}
                     </div>
                     {contact ? (
@@ -421,6 +443,19 @@ export default function ConnectTeamClient({
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Copy Link Button */}
+                  <button
+                    onClick={() => handleCopyLink(member)}
+                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+                    title="Copy Profile Update Link"
+                  >
+                    {copiedCode === targetCode ? (
+                      <Check className="w-3 h-3 text-emerald-600" />
+                    ) : (
+                      <Link2 className="w-3 h-3" />
+                    )}
+                  </button>
+
                   <button
                     onClick={() => handleToggleStatus(member._id, member.active)}
                     disabled={isPending || !isAdmin}
@@ -474,7 +509,9 @@ export default function ConnectTeamClient({
               ) : (
                 data.map((member: any) => {
                   const isLeader = member.groupName === "Team Leaders";
+                  const isFollowUp = member.groupName === "Follow Up Team";
                   const contact = member.contactNumber || member.contact;
+                  const targetCode = member.updateCode || member._id;
 
                   return (
                     <tr key={member._id} className="hover:bg-blue-50/20 transition-colors">
@@ -507,15 +544,21 @@ export default function ConnectTeamClient({
                       </td>
 
                       <td className="py-4 px-6">
-                        <span
-                          className={`px-3 py-1 rounded-xl text-xs font-black ${
-                            isLeader
-                              ? "bg-orange-50 text-[#FF6B00] border border-orange-200/60"
-                              : "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {member.groupName || "Members"}
-                        </span>
+                        {isLeader ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black tracking-wide uppercase bg-gradient-to-r from-orange-50 to-amber-50 text-[#FF6B00] border border-orange-200/80 whitespace-nowrap shadow-xs">
+                            <ShieldCheck className="w-3.5 h-3.5 text-[#FF6B00] shrink-0" />
+                            Team Leader
+                          </span>
+                        ) : isFollowUp ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 whitespace-nowrap">
+                            <UserCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            Follow Up Team
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200/70 whitespace-nowrap">
+                            Member
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-4 px-6">
@@ -578,13 +621,28 @@ export default function ConnectTeamClient({
 
                       {isAdmin && (
                         <td className="py-4 px-4 text-center">
-                          <button
-                            onClick={() => handleOpenEdit(member)}
-                            className="p-2 rounded-xl bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00] transition-colors"
-                            title="Edit Member (Admin)"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            {/* Copy Link Button */}
+                            <button
+                              onClick={() => handleCopyLink(member)}
+                              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+                              title="Copy Profile Update Link"
+                            >
+                              {copiedCode === targetCode ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Link2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => handleOpenEdit(member)}
+                              className="p-2 rounded-xl bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00] transition-colors"
+                              title="Edit Member (Admin)"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       )}
                     </tr>
