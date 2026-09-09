@@ -13,18 +13,11 @@ import {
   LogIn, 
   ShieldCheck, 
   UserCheck2,
-  Loader2
+  Loader2,
+  Calendar
 } from "lucide-react";
 import { createFirstTimerAction } from "@/app/actions/firstTimerAction";
 import ApproachedByAutocomplete from "@/app/components/ApproachedByAutocomplete";
-
-const ageGroups = [
-  { value: "Youth", label: "River Youth", age: "13 to 19 yrs old" },
-  { value: "Young Adult", label: "Young Adult", age: "20 to 35 yrs old" },
-  { value: "River Men", label: "River Men", age: "36 to 50 yrs old" },
-  { value: "River Women", label: "River Women", age: "36 to 50 yrs old" },
-  { value: "Seasoned", label: "Seasoned", age: "51 yrs old & above" },
-];
 
 export default function StandaloneIntakePage() {
   const [isPending, startTransition] = useTransition();
@@ -33,7 +26,7 @@ export default function StandaloneIntakePage() {
 
   const [iam, setIam] = useState<"VISITOR" | "LOOKING FOR A CHURCH" | "FROM OTHER CHURCH">("LOOKING FOR A CHURCH");
   const [gender, setGender] = useState<number>(0); // 0 = Female, 1 = Male
-  const [ageGroup, setAgeGroup] = useState<string>("Young Adult");
+  const [age, setAge] = useState<string>("");
   const [serviceAttended, setServiceAttended] = useState<string>("10AM");
   const [lifeGroupInterest, setLifeGroupInterest] = useState<string>("YES");
   const [approachedBy, setApproachedBy] = useState<string>("");
@@ -57,6 +50,11 @@ export default function StandaloneIntakePage() {
       return;
     }
 
+    if (!age || parseInt(age, 10) < 1) {
+      setError("Please enter a valid age.");
+      return;
+    }
+
     if (contactInput.trim() && contactInput.length < 10) {
       setError("Please enter a complete 10-digit mobile number, or leave it blank.");
       return;
@@ -65,7 +63,7 @@ export default function StandaloneIntakePage() {
     const formData = new FormData(e.currentTarget);
     formData.set("iam", iam);
     formData.set("gender", String(gender));
-    formData.set("ageGroup", ageGroup);
+    formData.set("age", age);
     formData.set("serviceAttended", serviceAttended);
     formData.set("lifeGroupInterest", lifeGroupInterest);
     formData.set("approachedBy", approachedBy);
@@ -101,6 +99,7 @@ export default function StandaloneIntakePage() {
                 setSubmitted(false);
                 setApproachedBy("");
                 setContactInput("");
+                setAge("");
               }}
               className="w-full py-4 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 transition-all"
             >
@@ -213,7 +212,7 @@ export default function StandaloneIntakePage() {
             </div>
           </div>
 
-          {/* 3. GENDER & CONTACT ROW */}
+          {/* 3. GENDER & AGE ROW */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
             {/* Gender */}
@@ -247,6 +246,32 @@ export default function StandaloneIntakePage() {
               </div>
             </div>
 
+            {/* Age (Years) */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                Age (Years) <span className="text-[#FF6B00]">*</span>
+              </label>
+              <div className="relative group">
+                <Calendar className="w-5 h-5 text-slate-400 group-focus-within:text-[#FF6B00] absolute left-4 top-1/2 -translate-y-1/2 transition-colors" />
+                <input
+                  type="number"
+                  name="age"
+                  min={1}
+                  max={120}
+                  required
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  placeholder="e.g. 24"
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+
+          </div>
+
+          {/* 4. CONTACT & SERVICE ROW */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
             {/* Optional PH Mobile Input */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
@@ -264,7 +289,7 @@ export default function StandaloneIntakePage() {
                   type="tel"
                   value={contactInput}
                   onChange={handleContactChange}
-                  placeholder="906 097 9218"
+                  placeholder="9** *** ****"
                   className="w-full px-4 py-4 bg-transparent text-sm sm:text-base font-semibold text-[#111827] placeholder-slate-400 focus:outline-none tracking-wide"
                 />
               </div>
@@ -275,65 +300,32 @@ export default function StandaloneIntakePage() {
               )}
             </div>
 
-          </div>
-
-          {/* 4. AGE GROUP */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-              Age Group <span className="text-[#FF6B00]">*</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {ageGroups.map((g) => (
-                <button
-                  key={g.value}
-                  type="button"
-                  onClick={() => {
-                    setAgeGroup(g.value);
-                    if (g.value === "River Men") setGender(1);
-                    if (g.value === "River Women") setGender(0);
-                  }}
-                  className={`py-3.5 px-4 rounded-2xl text-left border transition-all flex items-center justify-between ${
-                    ageGroup === g.value
-                      ? "bg-[#FF6B00] text-white border-[#FF6B00] shadow-md shadow-orange-500/20"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
-                  <div>
-                    <div className="text-xs font-extrabold">{g.label}</div>
-                    <div className={`text-[11px] ${ageGroup === g.value ? "text-white/80" : "text-slate-400"}`}>
-                      {g.age}
-                    </div>
-                  </div>
-                  {ageGroup === g.value && <CheckCircle2 className="w-4 h-4 text-white shrink-0" />}
-                </button>
-              ))}
+            {/* Service Attended */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                Which Service Did You Attend? <span className="text-[#FF6B00]">*</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {["10AM", "1PM", "4PM"].map((slot) => (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => setServiceAttended(slot)}
+                    className={`py-4 rounded-2xl text-xs font-extrabold border transition-all ${
+                      serviceAttended === slot
+                        ? "bg-[#FF6B00] text-white border-[#FF6B00] shadow-md shadow-orange-500/20"
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
             </div>
+
           </div>
 
-          {/* 5. SERVICE ATTENDED */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-              Which Service Did You Attend? <span className="text-[#FF6B00]">*</span>
-            </label>
-            <div className="grid grid-cols-3 gap-2.5">
-              {["10AM", "1PM", "4PM"].map((slot) => (
-                <button
-                  key={slot}
-                  type="button"
-                  onClick={() => setServiceAttended(slot)}
-                  className={`py-3.5 rounded-2xl text-xs font-extrabold border transition-all ${
-                    serviceAttended === slot
-                      ? "bg-[#FF6B00] text-white border-[#FF6B00] shadow-md shadow-orange-500/20"
-                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
-                  {slot}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 6. MESSENGER & INVITED BY */}
+          {/* 5. MESSENGER & INVITED BY */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
@@ -367,7 +359,7 @@ export default function StandaloneIntakePage() {
             </div>
           </div>
 
-          {/* 7. CONNECTED WITH */}
+          {/* 6. CONNECTED WITH */}
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
               Connected With
@@ -383,7 +375,7 @@ export default function StandaloneIntakePage() {
             </div>
           </div>
 
-          {/* 8. APPROACHED BY & LIFEGROUP */}
+          {/* 7. APPROACHED BY & LIFEGROUP */}
           <div className="space-y-4 pt-1">
             <ApproachedByAutocomplete
               value={approachedBy}

@@ -23,6 +23,19 @@ function formatPhilippineContact(rawContact: string): string {
   return cleaned;
 }
 
+function resolveAgeGroup(age: number, gender: number): string {
+  if (age <= 19) {
+    return "Youth";
+  }
+  if (age <= 35) {
+    return "Young Adult";
+  }
+  if (age <= 50) {
+    return gender === 1 ? "River Men" : "River Women";
+  }
+  return "Seasoned";
+}
+
 export async function createFirstTimerAction(formData: FormData) {
   try {
     await dbConnect();
@@ -30,8 +43,8 @@ export async function createFirstTimerAction(formData: FormData) {
     const iam = formData.get("iam") as string;
     const fullName = formData.get("fullName") as string;
     const gender = Number(formData.get("gender") || 0);
+    const rawAge = formData.get("age");
     const rawContact = formData.get("contact") as string;
-    const ageGroup = formData.get("ageGroup") as string;
     const messenger = formData.get("messenger") as string;
     const serviceAttended = formData.get("serviceAttended") as string;
     const invitedBy = formData.get("invitedBy") as string;
@@ -39,10 +52,14 @@ export async function createFirstTimerAction(formData: FormData) {
     const lifeGroupInterest = formData.get("lifeGroupInterest") as string;
     const approachedBy = formData.get("approachedBy") as string;
 
-    if (!fullName || !iam || !ageGroup || !serviceAttended || !approachedBy) {
-      return { success: false, error: "Please fill in all required fields." };
+    const age = rawAge ? parseInt(String(rawAge), 10) : NaN;
+
+    if (!fullName || !iam || isNaN(age) || age < 1 || !serviceAttended || !approachedBy) {
+      return { success: false, error: "Please fill in all required fields, including a valid age." };
     }
 
+    // Auto-derive demographic age group based on age and gender
+    const computedAgeGroup = resolveAgeGroup(age, gender);
     const formattedContact = formatPhilippineContact(rawContact);
 
     await FirstTimer.create({
@@ -50,7 +67,7 @@ export async function createFirstTimerAction(formData: FormData) {
       fullName: fullName.trim(),
       gender,
       contact: formattedContact,
-      ageGroup,
+      ageGroup: computedAgeGroup, // saved based on derivation; numeric age is discarded
       messenger: messenger ? messenger.trim() : "",
       serviceAttended,
       invitedBy: invitedBy ? invitedBy.trim() : "",
@@ -64,6 +81,8 @@ export async function createFirstTimerAction(formData: FormData) {
 
     revalidatePath("/");
     revalidatePath("/intake");
+    revalidatePath("/vips");
+    revalidatePath("/dashboard");
 
     return { 
       success: true, 
