@@ -779,15 +779,6 @@ export default function VipsTableClient({
                     <tr key={item._id} className="hover:bg-orange-50/30 transition-colors">
                       <td className="py-4 px-5">
                         <div className="flex items-center gap-3">
-                          <div
-                            className={`h-9 w-9 rounded-xl flex items-center justify-center font-black text-xs text-white shadow-sm ${
-                              gender.isMale
-                                ? "bg-blue-500 shadow-blue-500/20"
-                                : "bg-rose-400 shadow-rose-400/20"
-                            }`}
-                          >
-                            {gender.short}
-                          </div>
                           <div>
                             <div className="font-extrabold text-[#111827]">{item.fullName}</div>
                             <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
