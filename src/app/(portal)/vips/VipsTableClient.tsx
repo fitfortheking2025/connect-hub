@@ -591,13 +591,6 @@ export default function VipsTableClient({
                 {/* Header: Name, Avatar, Date, Copy Details, Edit, Delete Actions */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5">
-                    <div
-                      className={`h-8 w-8 rounded-xl flex items-center justify-center font-black text-xs text-white shrink-0 shadow-sm ${
-                        gender.isMale ? "bg-blue-500" : "bg-rose-400"
-                      }`}
-                    >
-                      {gender.short}
-                    </div>
                     <div>
                       <h3 className="font-extrabold text-sm text-[#111827] leading-tight">
                         {item.fullName}
