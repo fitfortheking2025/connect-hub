@@ -1,4 +1,3 @@
-// src/app/(portal)/vips/VipsTableClient.tsx
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
@@ -36,15 +35,6 @@ import { exportConnectedMembersPdf } from "@/lib/exportConnectedPdf";
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
-];
-
-const AGE_GROUPS = [
-  "ALL",
-  "Youth",
-  "Young Adult",
-  "River Men",
-  "River Women",
-  "Seasoned"
 ];
 
 const WELCOME_SMS_MESSAGE = `Welcome to River of God Church!
@@ -162,7 +152,6 @@ export default function VipsTableClient({
   const safeYear = selectedYear || new Date().getFullYear();
 
   const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [selectedAge, setSelectedAge] = useState(searchParams.get("ageGroup") || "ALL");
   const [selectedService, setSelectedService] = useState(searchParams.get("service") || "ALL");
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get("status") || "ALL");
 
@@ -178,7 +167,6 @@ export default function VipsTableClient({
   const updateFilters = (
     m: number,
     y: number,
-    age: string,
     srv: string,
     st: string,
     term: string
@@ -186,7 +174,6 @@ export default function VipsTableClient({
     const params = new URLSearchParams();
     params.set("month", String(m));
     params.set("year", String(y));
-    if (age !== "ALL") params.set("ageGroup", age);
     if (srv !== "ALL") params.set("service", srv);
     if (st !== "ALL") params.set("status", st);
     if (term.trim()) params.set("search", term.trim());
@@ -203,7 +190,7 @@ export default function VipsTableClient({
       m = 12;
       y -= 1;
     }
-    updateFilters(m, y, selectedAge, selectedService, selectedStatus, search);
+    updateFilters(m, y, selectedService, selectedStatus, search);
   };
 
   const handleNextMonth = () => {
@@ -213,7 +200,7 @@ export default function VipsTableClient({
       m = 1;
       y += 1;
     }
-    updateFilters(m, y, selectedAge, selectedService, selectedStatus, search);
+    updateFilters(m, y, selectedService, selectedStatus, search);
   };
 
   const handleExportConnectedPdf = () => {
@@ -443,7 +430,7 @@ export default function VipsTableClient({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            updateFilters(safeMonth, safeYear, selectedAge, selectedService, selectedStatus, search);
+            updateFilters(safeMonth, safeYear, selectedService, selectedStatus, search);
           }}
           className="relative"
         >
@@ -458,34 +445,15 @@ export default function VipsTableClient({
         </form>
       </div>
 
-      {/* 2. Unified Filter Row */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar select-none">
-        {AGE_GROUPS.map((age) => (
-          <button
-            key={age}
-            onClick={() => {
-              setSelectedAge(age);
-              updateFilters(safeMonth, safeYear, age, selectedService, selectedStatus, search);
-            }}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all shrink-0 active:scale-95 ${
-              selectedAge === age
-                ? "bg-[#FF6B00] text-white shadow-md shadow-orange-500/20"
-                : "bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50"
-            }`}
-          >
-            {age === "ALL" ? "All Groups" : age}
-          </button>
-        ))}
-
-        <div className="h-5 w-px bg-slate-200 shrink-0 mx-0.5" />
-
+      {/* 2. Unified Filter Row (Service & Status Only) */}
+      <div className="flex items-center gap-2 select-none">
         <select
           value={selectedService}
           onChange={(e) => {
             setSelectedService(e.target.value);
-            updateFilters(safeMonth, safeYear, selectedAge, e.target.value, selectedStatus, search);
+            updateFilters(safeMonth, safeYear, e.target.value, selectedStatus, search);
           }}
-          className="px-3 py-1.5 rounded-xl bg-white border border-slate-200/80 text-xs font-extrabold text-slate-700 focus:outline-none shadow-sm shrink-0 cursor-pointer"
+          className="px-3.5 py-2 rounded-xl bg-white border border-slate-200/80 text-xs font-extrabold text-slate-700 focus:outline-none shadow-sm cursor-pointer"
         >
           <option value="ALL">All Services</option>
           <option value="10AM">10AM Service</option>
@@ -497,9 +465,9 @@ export default function VipsTableClient({
           value={selectedStatus}
           onChange={(e) => {
             setSelectedStatus(e.target.value);
-            updateFilters(safeMonth, safeYear, selectedAge, selectedService, e.target.value, search);
+            updateFilters(safeMonth, safeYear, selectedService, e.target.value, search);
           }}
-          className="px-3 py-1.5 rounded-xl bg-white border border-slate-200/80 text-xs font-extrabold text-slate-700 focus:outline-none shadow-sm shrink-0 cursor-pointer"
+          className="px-3.5 py-2 rounded-xl bg-white border border-slate-200/80 text-xs font-extrabold text-slate-700 focus:outline-none shadow-sm cursor-pointer"
         >
           <option value="ALL">All Statuses</option>
           <option value="UNTEXTED">Pending SMS</option>
@@ -515,7 +483,7 @@ export default function VipsTableClient({
           <div>
             <div className="text-xs font-black text-[#111827] flex items-center gap-1.5">
               <Send className="w-3.5 h-3.5 text-[#FF6B00]" />
-              Follow-Up SMS • <span className="text-[#FF6B00]">{selectedAge === "ALL" ? "All Age Groups" : selectedAge}</span>
+              Follow-Up SMS Dispatch
             </div>
             <p className="text-[11px] text-slate-500 font-medium mt-0.5">
               {untextedPhoneNumbers.length > 0 ? (

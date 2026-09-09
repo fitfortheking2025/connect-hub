@@ -1,3 +1,4 @@
+// src/models/User.ts
 import mongoose, { Schema, Document, models, model } from "mongoose";
 
 export type UserRole = "ADMIN" | "TEAM_LEADER" | "FOLLOW_UP_TEAM" | "MEMBER";
@@ -8,6 +9,8 @@ export interface IUser extends Document {
   fullName: string;
   role: UserRole;
   teamMemberId?: mongoose.Types.ObjectId;
+  assignedAgeGroups: ("Youth" | "Young Adult" | "River Men" | "River Women" | "Seasoned")[];
+  assignedGender: number | null; // 0 = Female, 1 = Male, null = Any / Both
   isActive: boolean;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -42,6 +45,16 @@ const UserSchema = new Schema<IUser>(
       ref: "TeamMember",
       default: null 
     },
+    assignedAgeGroups: {
+      type: [String],
+      enum: ["Youth", "Young Adult", "River Men", "River Women", "Seasoned"],
+      default: [],
+    },
+    assignedGender: {
+      type: Number,
+      enum: [0, 1, null],
+      default: null,
+    },
     isActive: { 
       type: Boolean, 
       default: true 
@@ -57,12 +70,7 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
-// --- PERFORMANCE INDEXES ---
-
-// 1. Fast Auth Lookups & enforce unique lowercase usernames
 UserSchema.index({ username: 1 }, { unique: true });
-
-// 2. Compound Index for Active Users by Role (Used in RBAC middleware)
 UserSchema.index({ role: 1, isActive: 1 });
 
 export default models.User || model<IUser>("User", UserSchema);

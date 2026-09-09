@@ -454,17 +454,19 @@ export default function ConnectTeamClient({
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    onClick={() => handleCopyLink(member)}
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
-                    title="Copy Profile Update Link"
-                  >
-                    {copiedCode === targetCode ? (
-                      <Check className="w-3 h-3 text-emerald-600" />
-                    ) : (
-                      <Link2 className="w-3 h-3" />
-                    )}
-                  </button>
+                  {isAdmin &&
+                    <button
+                      onClick={() => handleCopyLink(member)}
+                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+                      title="Copy Profile Update Link"
+                    >
+                      {copiedCode === targetCode ? (
+                        <Check className="w-3 h-3 text-emerald-600" />
+                      ) : (
+                        <Link2 className="w-3 h-3" />
+                      )}
+                    </button>
+                  }
 
                   <button
                     onClick={() => handleToggleStatus(member._id, member.active)}

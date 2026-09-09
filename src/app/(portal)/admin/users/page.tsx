@@ -2,8 +2,9 @@
 import { redirect } from "next/navigation";
 import dbConnect from "@/lib/mongodb";
 import { User, TeamMember } from "@/models";
-import { ShieldCheck, UserCheck, KeyRound, Clock, AtSign, Shield } from "lucide-react";
+import { ShieldCheck, UserCheck, KeyRound, Clock, AtSign, Shield, Filter } from "lucide-react";
 import CreateUserModal from "./CreateUserModal";
+import EditUserAssignmentModal from "./EditUserAssignmentModal";
 import { auth } from "@/lib/auth";
 
 export default async function AdminUsersPage() {
@@ -53,7 +54,7 @@ export default async function AdminUsersPage() {
           </div>
         ) : (
           users.map((u: any) => {
-            const roleFormatted = u.role ? u.role.replace("_", " ") : "MINISTER";
+            const roleFormatted = u.role ? u.role.replace(/_/g, " ") : "MINISTER";
 
             return (
               <div
@@ -81,20 +82,37 @@ export default async function AdminUsersPage() {
                     </div>
                   </div>
 
-                  {/* System Role Badge */}
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-extrabold border shrink-0 ${
-                      u.role === "ADMIN"
-                        ? "bg-rose-50 text-rose-600 border-rose-200/60"
-                        : u.role === "TEAM_LEADER"
-                        ? "bg-orange-50 text-[#FF6B00] border-orange-200/60"
-                        : "bg-blue-50 text-blue-600 border-blue-200/60"
-                    }`}
-                  >
-                    <Shield className="w-2.5 h-2.5" />
-                    {roleFormatted}
-                  </span>
+                  {/* System Role Badge & Edit Modal */}
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-extrabold border shrink-0 ${
+                        u.role === "ADMIN"
+                          ? "bg-rose-50 text-rose-600 border-rose-200/60"
+                          : u.role === "TEAM_LEADER"
+                          ? "bg-orange-50 text-[#FF6B00] border-orange-200/60"
+                          : "bg-blue-50 text-blue-600 border-blue-200/60"
+                      }`}
+                    >
+                      <Shield className="w-2.5 h-2.5" />
+                      {roleFormatted}
+                    </span>
+                    <EditUserAssignmentModal user={JSON.parse(JSON.stringify(u))} />
+                  </div>
                 </div>
+
+                {/* Demographics Badge for Follow Up */}
+                {u.role === "FOLLOW_UP_TEAM" && (
+                  <div className="text-[11px] bg-slate-50 rounded-xl p-2 border border-slate-100 flex items-center justify-between">
+                    <span className="text-slate-400 font-bold uppercase text-[9px] flex items-center gap-1">
+                      <Filter className="w-3 h-3 text-[#FF6B00]" /> Focus
+                    </span>
+                    <span className="font-bold text-slate-700">
+                      {u.assignedAgeGroups?.length > 0 ? u.assignedAgeGroups.join(", ") : "Unassigned"}
+                      {u.assignedGender === 1 && " (Men)"}
+                      {u.assignedGender === 0 && " (Women)"}
+                    </span>
+                  </div>
+                )}
 
                 {/* Linked Roster Details Card */}
                 <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2 border border-slate-100 space-y-1">
@@ -143,14 +161,15 @@ export default async function AdminUsersPage() {
                 <th className="py-4 px-6">User / Minister</th>
                 <th className="py-4 px-6">Username</th>
                 <th className="py-4 px-6">System Role</th>
+                <th className="py-4 px-6">Assigned Focus</th>
                 <th className="py-4 px-6">Linked Roster</th>
-                <th className="py-4 px-6">Date Created</th>
+                <th className="py-4 px-6 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm font-medium">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-slate-400 text-xs font-medium">
+                  <td colSpan={6} className="py-16 text-center text-slate-400 text-xs font-medium">
                     No leader accounts found.
                   </td>
                 </tr>
@@ -184,8 +203,25 @@ export default async function AdminUsersPage() {
                         }`}
                       >
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        {u.role.replace("_", " ")}
+                        {u.role.replace(/_/g, " ")}
                       </span>
+                    </td>
+
+                    {/* Assigned Focus Column */}
+                    <td className="py-4 px-6 text-xs font-bold text-slate-700">
+                      {u.role === "FOLLOW_UP_TEAM" ? (
+                        u.assignedAgeGroups?.length > 0 ? (
+                          <span>
+                            {u.assignedAgeGroups.join(", ")}
+                            {u.assignedGender === 1 && " (Men)"}
+                            {u.assignedGender === 0 && " (Women)"}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">Unassigned</span>
+                        )
+                      ) : (
+                        <span className="text-slate-400 font-normal">All Demographics</span>
+                      )}
                     </td>
 
                     <td className="py-4 px-6 text-xs">
@@ -199,15 +235,8 @@ export default async function AdminUsersPage() {
                       )}
                     </td>
 
-                    <td className="py-4 px-6 text-xs text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        {new Date(u.createdAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </div>
+                    <td className="py-4 px-6 text-right">
+                      <EditUserAssignmentModal user={JSON.parse(JSON.stringify(u))} />
                     </td>
                   </tr>
                 ))

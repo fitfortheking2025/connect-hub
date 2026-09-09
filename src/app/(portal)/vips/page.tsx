@@ -1,15 +1,14 @@
-// src/app/(portal)/vips/page.tsx
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
-import { FirstTimer, TeamMember } from "@/models";
+import { FirstTimer, TeamMember, User } from "@/models";
 import VipsTableClient from "./VipsTableClient";
 import { Sparkles } from "lucide-react";
+import { getVipScopeFilter } from "@/lib/vipScope";
 
 interface PageProps {
   searchParams: Promise<{
     month?: string;
     year?: string;
-    ageGroup?: string;
     service?: string;
     status?: string;
     search?: string;
@@ -20,11 +19,21 @@ export default async function VipsPage({ searchParams }: PageProps) {
   const session = await auth();
   await dbConnect();
 
-  const user = session?.user as any;
-  const userRole = String(user?.role || "").toUpperCase();
+  const sessionUser = session?.user as any;
+  const userRole = String(sessionUser?.role || "").toUpperCase().replace(/[\s-]+/g, "_");
 
   const isAdmin = userRole === "ADMIN";
-  const canExportPdf = isAdmin || userRole === "TEAM_LEADER" || userRole === "TEAM LEADER";
+  const isTeamLeader = userRole === "TEAM_LEADER";
+  const canExportPdf = isAdmin || isTeamLeader;
+
+  // 1. Fetch current user from DB to get their latest dynamic demographic scope
+  const currentUser = await User.findById(sessionUser?.id || sessionUser?._id).lean();
+
+  const scopeFilter = getVipScopeFilter({
+    role: currentUser?.role || userRole,
+    assignedAgeGroups: currentUser?.assignedAgeGroups || [],
+    assignedGender: currentUser?.assignedGender,
+  });
 
   const params = await searchParams;
   const now = new Date();
@@ -38,31 +47,28 @@ export default async function VipsPage({ searchParams }: PageProps) {
   const startOfMonth = new Date(selectedYear, selectedMonth - 1, 1, 0, 0, 0, 0);
   const endOfMonth = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999);
 
-  const query: any = {
+  // 2. Build URL param filters (age group filtering is handled by demographic scoping)
+  const paramFilter: any = {
     createdAt: { $gte: startOfMonth, $lte: endOfMonth },
   };
 
-  if (params.ageGroup && params.ageGroup !== "ALL") {
-    query.ageGroup = params.ageGroup;
-  }
-
   if (params.service && params.service !== "ALL") {
-    query.serviceAttended = params.service;
+    paramFilter.serviceAttended = params.service;
   }
 
   if (params.status === "UNTEXTED") {
-    query.textedAlready = { $ne: true };
+    paramFilter.textedAlready = { $ne: true };
   } else if (params.status === "TEXTED") {
-    query.textedAlready = true;
+    paramFilter.textedAlready = true;
   } else if (params.status === "DISCIPLESHIP_YES") {
-    query.startedOne2One = true;
+    paramFilter.startedOne2One = true;
   } else if (params.status === "DISCIPLESHIP_NO") {
-    query.startedOne2One = { $ne: true };
+    paramFilter.startedOne2One = { $ne: true };
   }
 
   if (params.search) {
     const s = params.search.trim();
-    query.$or = [
+    paramFilter.$or = [
       { fullName: { $regex: s, $options: "i" } },
       { contact: { $regex: s, $options: "i" } },
       { approachedBy: { $regex: s, $options: "i" } },
@@ -71,9 +77,24 @@ export default async function VipsPage({ searchParams }: PageProps) {
     ];
   }
 
+  // 3. Combine URL filters with user's demographic scope
+  const finalQuery: any = {
+    $and: [
+      scopeFilter,
+      paramFilter,
+    ],
+  };
+
+  const monthCountQuery: any = {
+    $and: [
+      scopeFilter,
+      { createdAt: { $gte: startOfMonth, $lte: endOfMonth } },
+    ],
+  };
+
   const [vips, totalInMonth, teamMembers] = await Promise.all([
-    FirstTimer.find(query).sort({ createdAt: -1 }).lean(),
-    FirstTimer.countDocuments({ createdAt: { $gte: startOfMonth, $lte: endOfMonth } }),
+    FirstTimer.find(finalQuery).sort({ createdAt: -1 }).lean(),
+    FirstTimer.countDocuments(monthCountQuery),
     TeamMember.find({ active: true }).select("_id name groupName").sort({ name: 1 }).lean(),
   ]);
 
@@ -88,7 +109,7 @@ export default async function VipsPage({ searchParams }: PageProps) {
             VIPs & First-Timers
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Filter by month and age bracket, broadcast SMS, and track One2One discipleship.
+            Review your assigned demographic focus, broadcast welcome SMS, and track One2One discipleship.
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 // src/app/(portal)/dashboard/page.tsx
 import { auth } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
-import { FirstTimer, TeamMember } from "@/models";
+import { FirstTimer, TeamMember, User } from "@/models";
 import Link from "next/link";
 import { 
   Users, 
@@ -17,13 +17,27 @@ import {
   Activity
 } from "lucide-react";
 import MonthlyBirthdaysWidget from "@/app/components/MonthlyBirthdaysWidget";
+import { getVipScopeFilter } from "@/lib/vipScope";
 
 export default async function DashboardPage() {
-  await auth();
+  const session = await auth();
   await dbConnect();
 
+  const sessionUser = session?.user as any;
+  const userRole = String(sessionUser?.role || "").toUpperCase().replace(/[\s-]+/g, "_");
+
+  // 1. Fetch current user from DB to obtain their demographic scope
+  const currentUser = await User.findById(sessionUser?.id || sessionUser?._id).lean();
+
+  const scopeFilter = getVipScopeFilter({
+    role: currentUser?.role || userRole,
+    assignedAgeGroups: currentUser?.assignedAgeGroups || [],
+    assignedGender: currentUser?.assignedGender,
+  });
+
+  // 2. Fetch scoped VIPs for the live feed, while keeping top KPI stats global
   const [vips, teamMembers, totalVips, discipleshipCount] = await Promise.all([
-    FirstTimer.find({}).sort({ createdAt: -1 }).limit(10).lean(),
+    FirstTimer.find(scopeFilter).sort({ createdAt: -1 }).limit(10).lean(),
     TeamMember.find({ active: true }).lean(),
     FirstTimer.countDocuments({}),
     FirstTimer.countDocuments({ startedOne2One: true }),
@@ -149,7 +163,7 @@ export default async function DashboardPage() {
         <div className="md:hidden space-y-2.5">
           {vips.length === 0 ? (
             <div className="bg-white rounded-[24px] border border-slate-200/80 p-8 text-center text-slate-400 text-xs font-medium">
-              No recent VIP records found.
+              No recent VIP records found in your assigned focus.
             </div>
           ) : (
             vips.map((item: any) => {
@@ -280,7 +294,7 @@ export default async function DashboardPage() {
                 {vips.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-16 text-center text-slate-400 text-xs font-medium">
-                      No recent VIP records found.
+                      No recent VIP records found in your assigned focus.
                     </td>
                   </tr>
                 ) : (

@@ -106,10 +106,10 @@ export async function logoutAction() {
 export async function createStaffUserAction(formData: FormData) {
   try {
     const session = await auth();
-    const currentUserRole = (session?.user as any)?.role;
+    const currentUserRole = String((session?.user as any)?.role || "").toUpperCase();
 
     if (currentUserRole !== "ADMIN") {
-      return { success: false, error: "Unauthorized. Only administrators can create accounts." };
+      return { success: false, error: "Unauthorized. Only Admins can create accounts." };
     }
 
     await dbConnect();
@@ -142,6 +142,8 @@ export async function createStaffUserAction(formData: FormData) {
       fullName: fullName.trim(),
       role,
       teamMemberId: teamMemberId || null,
+      assignedAgeGroups: [],
+      assignedGender: null,
       isActive: true,
       createdBy: (session?.user as any)?.id,
     });
@@ -158,5 +160,41 @@ export async function createStaffUserAction(formData: FormData) {
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to create user account." };
+  }
+}
+
+export async function updateUserAssignmentAction(data: {
+  userId: string;
+  role: "ADMIN" | "TEAM_LEADER" | "FOLLOW_UP_TEAM";
+  assignedAgeGroups: string[];
+  assignedGender: number | null;
+}) {
+  try {
+    const session = await auth();
+    const currentUserRole = String((session?.user as any)?.role || "").toUpperCase();
+
+    if (currentUserRole !== "ADMIN") {
+      return { success: false, error: "Unauthorized. Only Admins can create accounts." };
+    }
+
+    await dbConnect();
+
+    const updatePayload: Record<string, any> = {
+      role: data.role,
+      assignedAgeGroups: data.role === "FOLLOW_UP_TEAM" ? data.assignedAgeGroups : [],
+      assignedGender: data.role === "FOLLOW_UP_TEAM" ? data.assignedGender : null,
+    };
+
+    const updatedUser = await User.findByIdAndUpdate(data.userId, updatePayload, { new: true });
+    if (!updatedUser) {
+      return { success: false, error: "User account not found." };
+    }
+
+    revalidatePath("/admin/users");
+    revalidatePath("/vips");
+
+    return { success: true, message: `Updated permissions for ${updatedUser.fullName}.` };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to update account." };
   }
 }
