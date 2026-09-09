@@ -67,7 +67,7 @@ export default function MobileUserDrawer({ user, isAdmin }: MobileUserDrawerProp
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-100/80 text-[#FF6B00] text-[10px] font-black uppercase">
                       <Shield className="w-2.5 h-2.5" />
-                      {isAdmin ? "Admin" : user.role || "Follow-Up Team"}
+                      {isAdmin ? "Admin" : (user.role === "FOLLOW_UP_TEAM" ? "Follow Up" : "Team Leader")}
                     </span>
                   </div>
                 </div>

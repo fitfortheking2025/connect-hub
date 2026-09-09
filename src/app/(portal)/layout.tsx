@@ -68,7 +68,7 @@ export default async function PortalLayout({
                   {user.name || user.email}
                 </div>
                 <div className="text-[9px] font-black text-orange-500 uppercase tracking-wider">
-                  {isAdmin ? "Admin" : user.role || "Minister"}
+                  {isAdmin ? "Admin" : (user.role === "FOLLOW_UP_TEAM" ? "Follow Up" : "Team Leader")}
                 </div>
               </div>
             </div>
