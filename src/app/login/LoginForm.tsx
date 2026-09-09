@@ -94,7 +94,7 @@ export default function LoginForm() {
                 required
                 autoCapitalize="none"
                 autoCorrect="off"
-                placeholder=""
+                placeholder="username"
                 className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#F8FAFC] border border-slate-200 text-sm font-medium text-[#111827] placeholder-slate-400 focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
               />
             </div>
