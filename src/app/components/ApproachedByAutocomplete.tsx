@@ -28,14 +28,12 @@ export default function ApproachedByAutocomplete({
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Helper: Preferred display label is Nickname, fallback to Full Name
   const getDisplayName = (m: TeamMemberItem) => {
     return m.nickname?.trim() ? m.nickname.trim() : m.name;
   };
 
-  // Live fetch only when searchTerm is NOT empty
   useEffect(() => {
-    const query = searchTerm.trim();
+    const query = searchTerm.trim().toLowerCase();
 
     if (!query) {
       setSuggestions([]);
@@ -44,27 +42,52 @@ export default function ApproachedByAutocomplete({
       return;
     }
 
-    const handler = setTimeout(async () => {
-      setIsLoading(true);
-      try {
-        const res = await fetch(`/api/team/search?q=${encodeURIComponent(query)}`);
-        const data = await res.json();
-        const members = data.members || [];
-        setSuggestions(members);
-        setIsOpen(members.length > 0);
-      } catch (err) {
-        console.error("Failed to load team members", err);
-        setSuggestions([]);
-        setIsOpen(false);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 200);
+    setIsLoading(true);
 
-    return () => clearTimeout(handler);
+    // 1. Try resolving offline from local cache first
+    try {
+      const cached = localStorage.getItem("connect_hub_active_members");
+      if (cached) {
+        const members: TeamMemberItem[] = JSON.parse(cached);
+        const filtered = members.filter((m) => {
+          const nameMatch = m.name?.toLowerCase().includes(query);
+          const nickMatch = m.nickname?.toLowerCase().includes(query);
+          return nameMatch || nickMatch;
+        });
+
+        setSuggestions(filtered.slice(0, 10));
+        setIsOpen(filtered.length > 0);
+        setIsLoading(false);
+        return;
+      }
+    } catch {
+      // LocalStorage access fallback
+    }
+
+    // 2. Fallback to API if cache is not yet available and device is online
+    if (navigator.onLine) {
+      const handler = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/team/search?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          const members = data.members || [];
+          setSuggestions(members);
+          setIsOpen(members.length > 0);
+        } catch (err) {
+          console.error("Failed to search members online", err);
+          setSuggestions([]);
+          setIsOpen(false);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 200);
+
+      return () => clearTimeout(handler);
+    } else {
+      setIsLoading(false);
+    }
   }, [searchTerm]);
 
-  // Click outside to close dropdown
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -76,7 +99,6 @@ export default function ApproachedByAutocomplete({
   }, []);
 
   const handleSelect = (member: TeamMemberItem) => {
-    // Set value as the Nickname (or Name fallback)
     const displayName = getDisplayName(member);
     onChange(displayName);
     setSearchTerm("");
@@ -104,11 +126,9 @@ export default function ApproachedByAutocomplete({
         )}
       </label>
 
-      {/* Hidden input for form submission & validation */}
       <input type="hidden" name="approachedBy" value={value} required={required} />
 
       {value ? (
-        /* Selected Single-Pill State */
         <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-orange-50 border-2 border-[#FF6B00] text-slate-800 shadow-sm transition-all animate-in fade-in zoom-in-95">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 rounded-xl bg-[#FF6B00] text-white">
@@ -129,7 +149,6 @@ export default function ApproachedByAutocomplete({
           </button>
         </div>
       ) : (
-        /* Search Textbox */
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
@@ -146,7 +165,6 @@ export default function ApproachedByAutocomplete({
         </div>
       )}
 
-      {/* Dynamic Dropdown */}
       {isOpen && !value && searchTerm.trim() !== "" && suggestions.length > 0 && (
         <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-slate-200/80 shadow-2xl shadow-slate-200/60 max-h-56 overflow-y-auto z-50 divide-y divide-slate-100 animate-in fade-in slide-in-from-top-2 duration-150">
           {suggestions.map((member) => {
@@ -161,11 +179,14 @@ export default function ApproachedByAutocomplete({
                 className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-orange-50/60 transition-colors group"
               >
                 <div className="min-w-0">
-                  {/* Primary text: Nickname */}
                   <div className="text-sm font-extrabold text-[#111827] group-hover:text-[#FF6B00] transition-colors">
                     {displayName}
                   </div>
-                  {hasNickname}
+                  {hasNickname && (
+                    <div className="text-[11px] text-slate-400 font-medium truncate">
+                      {member.name}
+                    </div>
+                  )}
                 </div>
 
                 <span className="text-xs font-bold text-[#FF6B00] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">

@@ -3,7 +3,7 @@
 
 import { revalidatePath } from "next/cache";
 import dbConnect from "@/lib/mongodb";
-import { FirstTimer } from "@/models";
+import { FirstTimer, TeamMember, User as UserModel } from "@/models";
 import { auth } from "@/lib/auth";
 
 function formatPhilippineContact(rawContact: string): string {
@@ -36,6 +36,94 @@ function resolveAgeGroup(age: number, gender: number): string {
   return "Seasoned";
 }
 
+/**
+ * Public action: fetches active team members without requiring a login session.
+ * Exposes ONLY safe roster info for autocomplete caching.
+ */
+export async function getActiveMembersPublicAction() {
+  try {
+    await dbConnect();
+    const members = await TeamMember.find({ active: true })
+      .select("name nickname")
+      .lean();
+
+    return {
+      success: true,
+      members: JSON.parse(JSON.stringify(members || [])),
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message, members: [] };
+  }
+}
+
+/**
+ * Batch-syncs offline queued VIP records into the database.
+ */
+export async function syncOfflineVipsBatchAction(
+  records: Array<{
+    clientTempId: string;
+    iam: string;
+    fullName: string;
+    gender: number;
+    age: string;
+    contact?: string;
+    serviceAttended: string;
+    messenger?: string;
+    invitedBy?: string;
+    connectedWith?: string;
+    lifeGroupInterest?: string;
+    approachedBy: string;
+    createdAtTimestamp?: number;
+  }>
+) {
+  try {
+    if (!records || records.length === 0) {
+      return { success: true, syncedIds: [] };
+    }
+
+    await dbConnect();
+    const syncedIds: string[] = [];
+
+    for (const item of records) {
+      const parsedAge = parseInt(String(item.age), 10) || 25;
+      const computedAgeGroup = resolveAgeGroup(parsedAge, item.gender);
+      const formattedContact = formatPhilippineContact(item.contact || "");
+
+      await FirstTimer.create({
+        iam: item.iam || "LOOKING FOR A CHURCH",
+        fullName: item.fullName.trim(),
+        gender: item.gender,
+        contact: formattedContact,
+        ageGroup: computedAgeGroup,
+        messenger: item.messenger ? item.messenger.trim() : "",
+        serviceAttended: item.serviceAttended,
+        invitedBy: item.invitedBy ? item.invitedBy.trim() : "",
+        connectedWith: item.connectedWith ? item.connectedWith.trim() : "",
+        lifeGroupInterest: item.lifeGroupInterest === "YES" ? "YES" : "NO",
+        approachedBy: item.approachedBy ? item.approachedBy.trim() : "Connect Team",
+        textedAlready: false,
+        startedOne2One: false,
+        createdAt: item.createdAtTimestamp ? new Date(item.createdAtTimestamp) : new Date(),
+      });
+
+      syncedIds.push(item.clientTempId);
+    }
+
+    revalidatePath("/");
+    revalidatePath("/intake");
+    revalidatePath("/vips");
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      syncedIds,
+      count: syncedIds.length,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to batch sync offline records." };
+  }
+}
+
 export async function createFirstTimerAction(formData: FormData) {
   try {
     await dbConnect();
@@ -58,7 +146,6 @@ export async function createFirstTimerAction(formData: FormData) {
       return { success: false, error: "Please fill in all required fields, including a valid age." };
     }
 
-    // Auto-derive demographic age group based on age and gender
     const computedAgeGroup = resolveAgeGroup(age, gender);
     const formattedContact = formatPhilippineContact(rawContact);
 
@@ -67,7 +154,7 @@ export async function createFirstTimerAction(formData: FormData) {
       fullName: fullName.trim(),
       gender,
       contact: formattedContact,
-      ageGroup: computedAgeGroup, // saved based on derivation; numeric age is discarded
+      ageGroup: computedAgeGroup,
       messenger: messenger ? messenger.trim() : "",
       serviceAttended,
       invitedBy: invitedBy ? invitedBy.trim() : "",

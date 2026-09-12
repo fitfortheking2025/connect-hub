@@ -1,6 +1,7 @@
+// src/app/(portal)/intake/page.tsx
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
@@ -14,15 +15,20 @@ import {
   ShieldCheck, 
   UserCheck2,
   Loader2,
-  Calendar
+  Calendar,
+  CloudOff
 } from "lucide-react";
-import { createFirstTimerAction } from "@/app/actions/firstTimerAction";
+import { createFirstTimerAction, getActiveMembersPublicAction } from "@/app/actions/firstTimerAction";
 import ApproachedByAutocomplete from "@/app/components/ApproachedByAutocomplete";
+import OfflineSyncBadge from "@/app/components/OfflineSyncBadge";
+import { savePendingVip, OfflineVipRecord } from "@/lib/offlineDb";
 
 export default function StandaloneIntakePage() {
   const [isPending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
+  const [savedOffline, setSavedOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [queueCounter, setQueueCounter] = useState(0);
 
   const [iam, setIam] = useState<"VISITOR" | "LOOKING FOR A CHURCH" | "FROM OTHER CHURCH">("LOOKING FOR A CHURCH");
   const [gender, setGender] = useState<number>(0); // 0 = Female, 1 = Male
@@ -31,6 +37,17 @@ export default function StandaloneIntakePage() {
   const [lifeGroupInterest, setLifeGroupInterest] = useState<string>("YES");
   const [approachedBy, setApproachedBy] = useState<string>("");
   const [contactInput, setContactInput] = useState<string>("");
+
+  // Cache active members locally on page load if online
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.onLine) {
+      getActiveMembersPublicAction().then((res) => {
+        if (res.success && res.members) {
+          localStorage.setItem("connect_hub_active_members", JSON.stringify(res.members));
+        }
+      }).catch(() => {});
+    }
+  }, []);
 
   const handleContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, "");
@@ -60,6 +77,39 @@ export default function StandaloneIntakePage() {
       return;
     }
 
+    const formattedContact = contactInput.trim() ? "0" + contactInput.trim() : "";
+
+    // 1. IF OFFLINE: Save straight to IndexedDB
+    if (!navigator.onLine) {
+      try {
+        const offlineRecord: OfflineVipRecord = {
+          clientTempId: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+          iam,
+          fullName: (e.currentTarget.elements.namedItem("fullName") as HTMLInputElement)?.value || "",
+          gender,
+          age,
+          contact: formattedContact,
+          serviceAttended,
+          messenger: (e.currentTarget.elements.namedItem("messenger") as HTMLInputElement)?.value || "",
+          invitedBy: (e.currentTarget.elements.namedItem("invitedBy") as HTMLInputElement)?.value || "",
+          connectedWith: (e.currentTarget.elements.namedItem("connectedWith") as HTMLInputElement)?.value || "",
+          lifeGroupInterest,
+          approachedBy,
+          createdAtTimestamp: Date.now(),
+        };
+
+        await savePendingVip(offlineRecord);
+        setSavedOffline(true);
+        setSubmitted(true);
+        setQueueCounter((prev) => prev + 1);
+        return;
+      } catch (err: any) {
+        setError("Could not store card locally on device: " + err.message);
+        return;
+      }
+    }
+
+    // 2. IF ONLINE: Normal server action flow with network fallback
     const formData = new FormData(e.currentTarget);
     formData.set("iam", iam);
     formData.set("gender", String(gender));
@@ -67,14 +117,38 @@ export default function StandaloneIntakePage() {
     formData.set("serviceAttended", serviceAttended);
     formData.set("lifeGroupInterest", lifeGroupInterest);
     formData.set("approachedBy", approachedBy);
-    formData.set("contact", contactInput.trim() ? "0" + contactInput.trim() : "");
+    formData.set("contact", formattedContact);
 
     startTransition(async () => {
-      const res = await createFirstTimerAction(formData);
-      if (res.success) {
+      try {
+        const res = await createFirstTimerAction(formData);
+        if (res.success) {
+          setSavedOffline(false);
+          setSubmitted(true);
+        } else {
+          setError(res.error || "Submission failed. Please check the inputs.");
+        }
+      } catch {
+        // Network threw unexpectedly mid-flight: fallback to local save
+        const offlineRecord: OfflineVipRecord = {
+          clientTempId: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+          iam,
+          fullName: (formData.get("fullName") as string) || "",
+          gender,
+          age,
+          contact: formattedContact,
+          serviceAttended,
+          messenger: (formData.get("messenger") as string) || "",
+          invitedBy: (formData.get("invitedBy") as string) || "",
+          connectedWith: (formData.get("connectedWith") as string) || "",
+          lifeGroupInterest,
+          approachedBy,
+          createdAtTimestamp: Date.now(),
+        };
+        await savePendingVip(offlineRecord);
+        setSavedOffline(true);
         setSubmitted(true);
-      } else {
-        setError(res.error || "Submission failed. Please check the inputs.");
+        setQueueCounter((prev) => prev + 1);
       }
     });
   };
@@ -82,21 +156,44 @@ export default function StandaloneIntakePage() {
   if (submitted) {
     return (
       <div className="min-h-screen w-full bg-white flex flex-col justify-between px-6 py-8 sm:px-12 lg:px-20">
-        <div className="hidden sm:block" />
-        <div className="w-full max-w-md mx-auto text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
-          <div className="h-20 w-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto border border-emerald-200/60 shadow-lg shadow-emerald-500/10">
-            <CheckCircle2 className="w-10 h-10" />
+        <header className="w-full flex items-center justify-between pb-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="relative h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50/80 p-2 border border-orange-200/60 shadow-sm">
+              <Image src="/connect-hub.png" alt="Connect Hub" fill className="object-contain p-1" priority />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-[#111827] leading-none">Connect Hub</h2>
+              <span className="text-[10px] font-bold text-[#FF6B00]">River of God</span>
+            </div>
           </div>
+          <OfflineSyncBadge refreshTrigger={queueCounter} />
+        </header>
+
+        <div className="w-full max-w-md mx-auto text-center space-y-6 py-12 animate-in fade-in zoom-in-95 duration-300">
+          <div className={`h-20 w-20 rounded-3xl flex items-center justify-center mx-auto border shadow-lg ${
+            savedOffline 
+              ? "bg-amber-50 text-amber-600 border-amber-200/60 shadow-amber-500/10"
+              : "bg-emerald-50 text-emerald-600 border-emerald-200/60 shadow-emerald-500/10"
+          }`}>
+            {savedOffline ? <CloudOff className="w-10 h-10" /> : <CheckCircle2 className="w-10 h-10" />}
+          </div>
+
           <div className="space-y-1.5">
-            <h2 className="text-3xl font-black text-[#111827]">Welcome Recorded!</h2>
+            <h2 className="text-3xl font-black text-[#111827]">
+              {savedOffline ? "Saved to Device!" : "Welcome Recorded!"}
+            </h2>
             <p className="text-sm text-slate-500 font-medium">
-              The first-timer details have been registered into Connect Hub.
+              {savedOffline 
+                ? "This card is safely stored offline on your phone and will automatically upload when internet connects."
+                : "The first-timer details have been registered into Connect Hub."}
             </p>
           </div>
+
           <div className="pt-4 flex flex-col gap-3">
             <button
               onClick={() => {
                 setSubmitted(false);
+                setSavedOffline(false);
                 setApproachedBy("");
                 setContactInput("");
                 setAge("");
@@ -113,6 +210,7 @@ export default function StandaloneIntakePage() {
             </Link>
           </div>
         </div>
+
         <footer className="w-full text-center text-xs text-slate-400 font-semibold pt-4">
           River of God Church • Connect Ministry Hub
         </footer>
@@ -124,7 +222,7 @@ export default function StandaloneIntakePage() {
     <div className="min-h-screen w-full bg-white flex flex-col justify-between px-6 py-8 sm:px-12 lg:px-20">
       
       {/* Top Header */}
-      <header className="w-full flex items-center justify-between pb-6 border-b border-slate-100">
+      <header className="w-full flex items-center justify-between pb-6 border-b border-slate-100 gap-4">
         <div className="flex items-center gap-3">
           <div className="relative h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50/80 p-2 border border-orange-200/60 shadow-sm">
             <Image src="/connect-hub.png" alt="Connect Hub" fill className="object-contain p-1" priority />
@@ -135,13 +233,16 @@ export default function StandaloneIntakePage() {
           </div>
         </div>
 
-        <Link 
-          href="/login" 
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all shadow-sm"
-        >
-          <LogIn className="w-3.5 h-3.5 text-[#FF6B00]" />
-          <span>Login</span>
-        </Link>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <OfflineSyncBadge refreshTrigger={queueCounter} />
+          <Link 
+            href="/login" 
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all shadow-sm"
+          >
+            <LogIn className="w-3.5 h-3.5 text-[#FF6B00]" />
+            <span>Login</span>
+          </Link>
+        </div>
       </header>
 
       {/* Main Full-Screen Form Canvas */}

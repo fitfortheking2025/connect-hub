@@ -10,6 +10,7 @@
     "migrate": "npx tsx scripts/migrate-sql-to-mongo.ts"
   },
   "dependencies": {
+    "@ducanh2912/next-pwa": "^10.2.9",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.3",
     "bcryptjs": "^3.0.3",
