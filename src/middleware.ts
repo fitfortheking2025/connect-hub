@@ -13,10 +13,19 @@ export default auth((req) => {
   const isAuthPage = nextUrl.pathname === "/login";
   const isPublicIntake = nextUrl.pathname.startsWith("/intake");
   const isPublicSchedule = nextUrl.pathname.startsWith("/schedule");
-  const isPublicConnectMember = nextUrl.pathname.startsWith("/connect-member"); // Allow public member updates
+  const isPublicConnectMember = nextUrl.pathname.startsWith("/connect-member");
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
 
-  if (isPublicSchedule || isPublicIntake || isPublicConnectMember) {
+  // Bypass Service Worker and PWA asset requests
+  const isPwaAsset = 
+    nextUrl.pathname === "/sw.js" ||
+    nextUrl.pathname.startsWith("/workbox-") ||
+    nextUrl.pathname.startsWith("/icons/") ||
+    nextUrl.pathname === "/manifest.json" ||
+    nextUrl.pathname === "/manifest.webmanifest" ||
+    nextUrl.pathname === "/connect-hub.png";
+
+  if (isPwaAsset || isPublicSchedule || isPublicIntake || isPublicConnectMember) {
     return NextResponse.next();
   }
 
@@ -47,6 +56,12 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|manifest.json|manifest.ts|connect-hub.png).*)",
+    /*
+     * Match all request paths except for:
+     * - API routes (/api/*)
+     * - Static files (_next/static, _next/image, favicon.ico)
+     * - PWA files (sw.js, workbox-*, manifest*, icons, logos)
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|sw.js|workbox-.*|manifest.webmanifest|manifest.json|manifest.ts|connect-hub.png|icons/.*).*)",
   ],
 };
