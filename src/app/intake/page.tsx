@@ -1,8 +1,7 @@
 // src/app/(portal)/intake/page.tsx
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import Image from "next/image";
+import { useState, useTransition, useEffect, useRef } from "react";
 import Link from "next/link";
 import { 
   User, 
@@ -24,6 +23,7 @@ import OfflineSyncBadge from "@/app/components/OfflineSyncBadge";
 import { savePendingVip, OfflineVipRecord } from "@/lib/offlineDb";
 
 export default function StandaloneIntakePage() {
+  const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
   const [savedOffline, setSavedOffline] = useState(false);
@@ -55,6 +55,22 @@ export default function StandaloneIntakePage() {
     if (val.startsWith("0")) val = val.slice(1);
     if (val.length <= 10) {
       setContactInput(val);
+    }
+  };
+
+  const resetFormState = () => {
+    setSubmitted(false);
+    setSavedOffline(false);
+    setError(null);
+    setIam("LOOKING FOR A CHURCH");
+    setGender(0);
+    setAge("");
+    setServiceAttended("10AM");
+    setLifeGroupInterest("YES");
+    setApproachedBy("");
+    setContactInput("");
+    if (formRef.current) {
+      formRef.current.reset();
     }
   };
 
@@ -155,18 +171,24 @@ export default function StandaloneIntakePage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen w-full bg-white flex flex-col justify-between px-6 py-8 sm:px-12 lg:px-20">
-        <header className="w-full flex items-center justify-between pb-6 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="relative h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50/80 p-2 border border-orange-200/60 shadow-sm">
-              <Image src="/connect-hub.png" alt="Connect Hub" fill className="object-contain p-1" priority />
+      <div className="min-h-screen w-full bg-white flex flex-col justify-between px-4 sm:px-12 lg:px-20 py-6 sm:py-8">
+        <header className="w-full flex items-center justify-between pb-4 sm:pb-6 border-b border-slate-100 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50/80 p-1.5 border border-orange-200/60 shadow-sm flex items-center justify-center">
+              <img
+                src="/connect-hub.png"
+                alt="Connect Hub"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <div>
-              <h2 className="text-base font-black text-[#111827] leading-none">Connect Hub</h2>
-              <span className="text-[10px] font-bold text-[#FF6B00]">River of God</span>
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-black text-[#111827] leading-tight truncate">Connect Hub</h2>
+              <span className="text-[10px] font-bold text-[#FF6B00] block leading-tight">River of God</span>
             </div>
           </div>
-          <OfflineSyncBadge refreshTrigger={queueCounter} />
+          <div className="shrink-0">
+            <OfflineSyncBadge refreshTrigger={queueCounter} />
+          </div>
         </header>
 
         <div className="w-full max-w-md mx-auto text-center space-y-6 py-12 animate-in fade-in zoom-in-95 duration-300">
@@ -191,20 +213,14 @@ export default function StandaloneIntakePage() {
 
           <div className="pt-4 flex flex-col gap-3">
             <button
-              onClick={() => {
-                setSubmitted(false);
-                setSavedOffline(false);
-                setApproachedBy("");
-                setContactInput("");
-                setAge("");
-              }}
-              className="w-full py-4 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 transition-all"
+              onClick={resetFormState}
+              className="w-full py-4 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 transition-all active:scale-[0.98]"
             >
               + Record Another First Timer
             </button>
             <Link
               href="/login"
-              className="w-full py-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all text-center"
+              className="w-full py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all text-center"
             >
               Go to Login
             </Link>
@@ -219,25 +235,29 @@ export default function StandaloneIntakePage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col justify-between px-6 py-8 sm:px-12 lg:px-20">
+    <div className="min-h-screen w-full bg-white flex flex-col justify-between px-4 sm:px-12 lg:px-20 py-6 sm:py-8">
       
-      {/* Top Header */}
-      <header className="w-full flex items-center justify-between pb-6 border-b border-slate-100 gap-4">
-        <div className="flex items-center gap-3">
-          <div className="relative h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50/80 p-2 border border-orange-200/60 shadow-sm">
-            <Image src="/connect-hub.png" alt="Connect Hub" fill className="object-contain p-1" priority />
+      {/* Top Header - Mobile Optimized */}
+      <header className="w-full flex items-center justify-between pb-4 sm:pb-6 border-b border-slate-100 gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50/80 p-1.5 border border-orange-200/60 shadow-sm flex items-center justify-center">
+            <img 
+              src="/connect-hub.png" 
+              alt="Connect Hub" 
+              className="w-full h-full object-contain"
+            />
           </div>
-          <div>
-            <h2 className="text-base font-black text-[#111827] leading-none">Connect Hub</h2>
-            <span className="text-[10px] font-bold text-[#FF6B00]">River of God</span>
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-black text-[#111827] leading-tight truncate">Connect Hub</h2>
+            <span className="text-[10px] font-bold text-[#FF6B00] block leading-tight">River of God</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <OfflineSyncBadge refreshTrigger={queueCounter} />
           <Link 
             href="/login" 
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all shadow-sm"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all shadow-sm"
           >
             <LogIn className="w-3.5 h-3.5 text-[#FF6B00]" />
             <span>Login</span>
@@ -246,17 +266,17 @@ export default function StandaloneIntakePage() {
       </header>
 
       {/* Main Full-Screen Form Canvas */}
-      <main className="w-full max-w-2xl mx-auto py-10 sm:py-14 space-y-8">
+      <main className="w-full max-w-2xl mx-auto py-8 sm:py-14 space-y-8">
         
         {/* Title Header */}
         <div className="space-y-2">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-[#FF6B00] text-[11px] font-bold">
             <Sparkles className="w-3.5 h-3.5" /> First-Timer Welcome Card
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-[#111827] tracking-tight">
+          <h1 className="text-2xl sm:text-4xl font-black text-[#111827] tracking-tight">
             Welcome to River of God!
           </h1>
-          <p className="text-sm sm:text-base text-slate-500 font-medium leading-relaxed">
+          <p className="text-xs sm:text-base text-slate-500 font-medium leading-relaxed">
             We&apos;re glad you&apos;re here. Our team would love to serve you and help you get connected.
           </p>
         </div>
@@ -267,14 +287,14 @@ export default function StandaloneIntakePage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
           
           {/* 1. I AM... */}
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
               I AM... <span className="text-[#FF6B00]">*</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
               {[
                 { value: "LOOKING FOR A CHURCH", label: "Looking for a Church" },
                 { value: "VISITOR", label: "Visitor" },
@@ -308,7 +328,7 @@ export default function StandaloneIntakePage() {
                 name="fullName"
                 required
                 placeholder="Your complete name"
-                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
+                className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
               />
             </div>
           </div>
@@ -325,7 +345,7 @@ export default function StandaloneIntakePage() {
                 <button
                   type="button"
                   onClick={() => setGender(0)}
-                  className={`py-4 rounded-2xl text-xs font-extrabold border transition-all ${
+                  className={`py-3.5 sm:py-4 rounded-2xl text-xs font-extrabold border transition-all ${
                     gender === 0
                       ? "bg-[#FF6B00] text-white border-[#FF6B00] shadow-md shadow-orange-500/20"
                       : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
@@ -336,7 +356,7 @@ export default function StandaloneIntakePage() {
                 <button
                   type="button"
                   onClick={() => setGender(1)}
-                  className={`py-4 rounded-2xl text-xs font-extrabold border transition-all ${
+                  className={`py-3.5 sm:py-4 rounded-2xl text-xs font-extrabold border transition-all ${
                     gender === 1
                       ? "bg-[#FF6B00] text-white border-[#FF6B00] shadow-md shadow-orange-500/20"
                       : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
@@ -363,7 +383,7 @@ export default function StandaloneIntakePage() {
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
                   placeholder="e.g. 24"
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
+                  className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
                 />
               </div>
             </div>
@@ -381,7 +401,7 @@ export default function StandaloneIntakePage() {
               </label>
               
               <div className="relative flex items-center rounded-2xl bg-slate-50 border border-slate-200 focus-within:border-[#FF6B00] focus-within:ring-4 focus-within:ring-[#FF6B00]/10 focus-within:bg-white transition-all overflow-hidden">
-                <div className="flex items-center gap-1.5 px-3.5 py-4 bg-slate-100/90 border-r border-slate-200 text-xs font-bold text-slate-700 select-none shrink-0">
+                <div className="flex items-center gap-1.5 px-3 py-3.5 sm:py-4 bg-slate-100/90 border-r border-slate-200 text-xs font-bold text-slate-700 select-none shrink-0">
                   <span className="text-sm leading-none">🇵🇭</span>
                   <span>+63</span>
                 </div>
@@ -391,7 +411,7 @@ export default function StandaloneIntakePage() {
                   value={contactInput}
                   onChange={handleContactChange}
                   placeholder="9** *** ****"
-                  className="w-full px-4 py-4 bg-transparent text-sm sm:text-base font-semibold text-[#111827] placeholder-slate-400 focus:outline-none tracking-wide"
+                  className="w-full px-3.5 py-3.5 sm:py-4 bg-transparent text-sm sm:text-base font-semibold text-[#111827] placeholder-slate-400 focus:outline-none tracking-wide"
                 />
               </div>
               {contactInput && (
@@ -412,7 +432,7 @@ export default function StandaloneIntakePage() {
                     key={slot}
                     type="button"
                     onClick={() => setServiceAttended(slot)}
-                    className={`py-4 rounded-2xl text-xs font-extrabold border transition-all ${
+                    className={`py-3.5 sm:py-4 rounded-2xl text-xs font-extrabold border transition-all ${
                       serviceAttended === slot
                         ? "bg-[#FF6B00] text-white border-[#FF6B00] shadow-md shadow-orange-500/20"
                         : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
@@ -439,7 +459,7 @@ export default function StandaloneIntakePage() {
                   type="text"
                   name="messenger"
                   placeholder="FB / Messenger profile name"
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
+                  className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
                 />
               </div>
             </div>
@@ -454,7 +474,7 @@ export default function StandaloneIntakePage() {
                   type="text"
                   name="invitedBy"
                   placeholder="Inviter's full name"
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
+                  className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
                 />
               </div>
             </div>
@@ -471,7 +491,7 @@ export default function StandaloneIntakePage() {
                 type="text"
                 name="connectedWith"
                 placeholder="Endorsed Life Group leader / member"
-                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
+                className="w-full pl-12 pr-4 py-3.5 sm:py-4 rounded-2xl bg-slate-50 border border-slate-200 text-sm sm:text-base text-[#111827] placeholder-slate-400 font-medium focus:outline-none focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 focus:bg-white transition-all"
               />
             </div>
           </div>
