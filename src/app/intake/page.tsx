@@ -186,8 +186,15 @@ export default function StandaloneIntakePage() {
               <span className="text-[10px] font-bold text-[#FF6B00] block leading-tight">River of God</span>
             </div>
           </div>
-          <div className="shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <OfflineSyncBadge refreshTrigger={queueCounter} />
+            <Link 
+              href="/login" 
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] sm:text-xs font-black transition-all shadow-sm"
+            >
+              <LogIn className="w-3.5 h-3.5 text-[#FF6B00]" />
+              <span>Login</span>
+            </Link>
           </div>
         </header>
 
@@ -237,7 +244,7 @@ export default function StandaloneIntakePage() {
   return (
     <div className="min-h-screen w-full bg-white flex flex-col justify-between px-4 sm:px-12 lg:px-20 py-6 sm:py-8">
       
-      {/* Top Header - Mobile Optimized */}
+      {/* Top Header - Responsive & Preserves Login */}
       <header className="w-full flex items-center justify-between pb-4 sm:pb-6 border-b border-slate-100 gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50/80 p-1.5 border border-orange-200/60 shadow-sm flex items-center justify-center">
@@ -253,11 +260,11 @@ export default function StandaloneIntakePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <OfflineSyncBadge refreshTrigger={queueCounter} />
           <Link 
             href="/login" 
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all shadow-sm"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] sm:text-xs font-black transition-all shadow-sm"
           >
             <LogIn className="w-3.5 h-3.5 text-[#FF6B00]" />
             <span>Login</span>
