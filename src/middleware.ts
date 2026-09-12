@@ -10,23 +10,25 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const userRole = (req.auth?.user as any)?.role;
 
+  // 1. Bypass any static asset files (scripts, workers, images, manifests, icons)
+  if (
+    nextUrl.pathname.endsWith(".js") ||
+    nextUrl.pathname.endsWith(".json") ||
+    nextUrl.pathname.endsWith(".png") ||
+    nextUrl.pathname.endsWith(".ico") ||
+    nextUrl.pathname.includes("workbox-") ||
+    nextUrl.pathname.includes("swe-worker-")
+  ) {
+    return NextResponse.next();
+  }
+
   const isAuthPage = nextUrl.pathname === "/login";
   const isPublicIntake = nextUrl.pathname.startsWith("/intake");
   const isPublicSchedule = nextUrl.pathname.startsWith("/schedule");
   const isPublicConnectMember = nextUrl.pathname.startsWith("/connect-member");
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
 
-  // Bypass all PWA and Service Worker runtime assets
-  const isPwaAsset = 
-    nextUrl.pathname === "/sw.js" ||
-    nextUrl.pathname.includes("workbox-") ||
-    nextUrl.pathname.includes("swe-worker-") ||
-    nextUrl.pathname.startsWith("/icons/") ||
-    nextUrl.pathname === "/manifest.json" ||
-    nextUrl.pathname === "/manifest.webmanifest" ||
-    nextUrl.pathname === "/connect-hub.png";
-
-  if (isPwaAsset || isPublicSchedule || isPublicIntake || isPublicConnectMember) {
+  if (isPublicSchedule || isPublicIntake || isPublicConnectMember) {
     return NextResponse.next();
   }
 
@@ -58,8 +60,11 @@ export default auth((req) => {
 export const config = {
   matcher: [
     /*
-     * Exclude static files, API routes, and all PWA worker assets
+     * Match all request paths except:
+     * - API routes (/api/*)
+     * - Next.js internal static assets (_next/static, _next/image)
+     * - Public static file extensions (.js, .json, .png, etc.)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|sw.js|workbox-.*|swe-worker-.*|manifest.webmanifest|manifest.json|manifest.ts|connect-hub.png|icons/.*).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:js|json|png|jpg|jpeg|gif|svg|webp|ico)).*)",
   ],
 };
