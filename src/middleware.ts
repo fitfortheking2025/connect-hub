@@ -16,10 +16,10 @@ export default auth((req) => {
   const isPublicConnectMember = nextUrl.pathname.startsWith("/connect-member");
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
 
-  // Bypass Service Worker and PWA asset requests
+  // 1. Bypass Service Worker & all Workbox hashed chunks
   const isPwaAsset = 
     nextUrl.pathname === "/sw.js" ||
-    nextUrl.pathname.startsWith("/workbox-") ||
+    nextUrl.pathname.includes("workbox-") ||
     nextUrl.pathname.startsWith("/icons/") ||
     nextUrl.pathname === "/manifest.json" ||
     nextUrl.pathname === "/manifest.webmanifest" ||
@@ -57,10 +57,10 @@ export default auth((req) => {
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for:
+     * Match all request paths except:
      * - API routes (/api/*)
-     * - Static files (_next/static, _next/image, favicon.ico)
-     * - PWA files (sw.js, workbox-*, manifest*, icons, logos)
+     * - Static Next files (_next/static, _next/image, favicon.ico)
+     * - PWA scripts and assets (sw.js, workbox-*, manifest, images)
      */
     "/((?!api|_next/static|_next/image|favicon.ico|sw.js|workbox-.*|manifest.webmanifest|manifest.json|manifest.ts|connect-hub.png|icons/.*).*)",
   ],
