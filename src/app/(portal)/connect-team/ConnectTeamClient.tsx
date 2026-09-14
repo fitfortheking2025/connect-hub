@@ -26,7 +26,9 @@ import {
   GraduationCap,
   CircleDollarSign,
   CalendarCheck,
-  CreditCard
+  CreditCard,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { 
   createTeamMemberAction, 
@@ -35,7 +37,8 @@ import {
 } from "@/app/actions/teamMemberActions";
 import {
   getMemberContributionHistoryAction,
-  recordContributionAction
+  recordContributionAction,
+  deleteContributionAction
 } from "@/app/actions/contributionActions";
 
 const DISCIPLESHIP_CLASSES = [
@@ -87,6 +90,9 @@ export default function ConnectTeamClient({
   const [modalMode, setModalMode] = useState<"ADD" | "EDIT" | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "discipleship" | "contributions">("info");
   const [activeItem, setActiveItem] = useState<any>(null);
+
+  // Delete Confirmation Modal State
+  const [deletingEntry, setDeletingEntry] = useState<any | null>(null);
 
   // Form Fields
   const [formName, setFormName] = useState("");
@@ -347,6 +353,27 @@ export default function ConnectTeamClient({
         router.refresh();
       } else {
         setFormError(res.error || "Failed to record contribution.");
+      }
+    });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!activeItem || !deletingEntry) return;
+
+    const target = deletingEntry;
+    setFormError(null);
+    setContribSuccessMsg(null);
+
+    startTransition(async () => {
+      const res = await deleteContributionAction(target._id);
+      if (res.success) {
+        setContribSuccessMsg(`Removed payment for ${MONTH_NAMES[target.month]} ${target.year}.`);
+        setDeletingEntry(null);
+        await loadContributions(activeItem._id);
+        router.refresh();
+      } else {
+        setFormError(res.error || "Failed to remove contribution.");
+        setDeletingEntry(null);
       }
     });
   };
@@ -783,7 +810,7 @@ export default function ConnectTeamClient({
       {/* 6. Add / Edit Member Modal */}
       {modalMode && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-xl max-h-[90vh] bg-white rounded-[28px] border border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95">
+          <div className="w-full max-w-xl max-h-[90vh] bg-white rounded-[28px] border border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 relative">
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className={`p-2 rounded-xl ${isFinanceLeader && !isAdmin ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-[#FF6B00]"}`}>
@@ -1048,7 +1075,10 @@ export default function ConnectTeamClient({
                   ) : (
                     <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden max-h-48 overflow-y-auto shadow-2xs">
                       {contribHistory.map((entry) => (
-                        <div key={entry._id} className="p-2.5 px-3.5 bg-white flex items-center justify-between text-xs hover:bg-slate-50/80 transition-colors">
+                        <div
+                          key={entry._id}
+                          className="p-2.5 px-3.5 bg-white flex items-center justify-between text-xs hover:bg-slate-50/80 transition-colors group"
+                        >
                           <div>
                             <span className="font-extrabold text-slate-900 block">
                               {MONTH_NAMES[entry.month]} {entry.year}
@@ -1058,9 +1088,24 @@ export default function ConnectTeamClient({
                               {entry.notes && ` • ${entry.notes}`}
                             </span>
                           </div>
-                          <span className="font-mono font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200 text-xs">
-                            ₱{entry.amount}
-                          </span>
+
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200 text-xs">
+                              ₱{entry.amount}
+                            </span>
+
+                            {canEditMember && (
+                              <button
+                                type="button"
+                                disabled={isPending}
+                                onClick={() => setDeletingEntry(entry)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all sm:opacity-0 sm:group-hover:opacity-100 active:scale-90 disabled:opacity-30"
+                                title={`Remove ${MONTH_NAMES[entry.month]} ${entry.year}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1327,6 +1372,54 @@ export default function ConnectTeamClient({
                   )}
                 </div>
               </form>
+            )}
+
+            {/* Nested Confirmation Modal for Deleting Contribution */}
+            {deletingEntry && (
+              <div className="absolute inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+                <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-2xl p-5 space-y-4 animate-in zoom-in-95 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="text-base font-black text-slate-900">Remove Payment?</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Are you sure you want to remove the contribution for{" "}
+                      <strong className="text-slate-800">
+                        {MONTH_NAMES[deletingEntry.month]} {deletingEntry.year}
+                      </strong>{" "}
+                      (<strong className="text-emerald-700">₱{deletingEntry.amount}</strong>)?
+                    </p>
+                    <p className="text-[11px] text-rose-500 font-semibold pt-1">
+                      This will automatically roll back the member's paid standing by one month.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => setDeletingEntry(null)}
+                      className="w-1/2 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={handleConfirmDelete}
+                      className="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-md shadow-rose-600/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        "Yes, Remove"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
           </div>

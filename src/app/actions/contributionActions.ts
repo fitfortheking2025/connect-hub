@@ -168,3 +168,32 @@ export async function recordContributionAction(data: {
     return { success: false, error: error.message || "Failed to record contribution." };
   }
 }
+
+export async function deleteContributionAction(contributionId: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized." };
+    }
+
+    const role = String((session.user as any).role || "").toUpperCase().replace(/[\s-]+/g, "_");
+    const isAuthorized = role === "ADMIN" || role === "FINANCE_LEADER";
+
+    if (!isAuthorized) {
+      return { success: false, error: "Insufficient permissions." };
+    }
+
+    await dbConnect();
+
+    // Import or use your Contribution model
+    const deleted = await Contribution.findByIdAndDelete(contributionId);
+    if (!deleted) {
+      return { success: false, error: "Record not found or already removed." };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("deleteContributionAction error:", err);
+    return { success: false, error: err.message || "Failed to remove contribution." };
+  }
+}
