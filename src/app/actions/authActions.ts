@@ -117,7 +117,7 @@ export async function createStaffUserAction(formData: FormData) {
     const username = (formData.get("username") as string)?.toLowerCase().trim();
     const password = "connect2026";
     const fullName = formData.get("fullName") as string;
-    const role = formData.get("role") as "TEAM_LEADER" | "FOLLOW_UP_TEAM";
+    const role = formData.get("role") as "TEAM_LEADER" | "FINANCE_LEADER" | "FOLLOW_UP_TEAM";
     const teamMemberId = formData.get("teamMemberId") as string;
 
     if (!username || !password || !fullName || !role) {
@@ -165,7 +165,7 @@ export async function createStaffUserAction(formData: FormData) {
 
 export async function updateUserAssignmentAction(data: {
   userId: string;
-  role: "ADMIN" | "TEAM_LEADER" | "FOLLOW_UP_TEAM";
+  role: "ADMIN" | "TEAM_LEADER" | "FINANCE_LEADER" | "FOLLOW_UP_TEAM";
   assignedAgeGroups: string[];
   assignedGender: number | null;
 }) {
@@ -174,7 +174,7 @@ export async function updateUserAssignmentAction(data: {
     const currentUserRole = String((session?.user as any)?.role || "").toUpperCase();
 
     if (currentUserRole !== "ADMIN") {
-      return { success: false, error: "Unauthorized. Only Admins can create accounts." };
+      return { success: false, error: "Unauthorized. Only Admins can modify accounts." };
     }
 
     await dbConnect();

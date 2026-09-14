@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import dbConnect from "@/lib/mongodb";
 import { User, TeamMember } from "@/models";
-import { ShieldCheck, UserCheck, KeyRound, Clock, AtSign, Shield, Filter } from "lucide-react";
+import { ShieldCheck, UserCheck, KeyRound, Clock, AtSign, Shield, Filter, CircleDollarSign } from "lucide-react";
 import CreateUserModal from "./CreateUserModal";
 import EditUserAssignmentModal from "./EditUserAssignmentModal";
 import { auth } from "@/lib/auth";
@@ -21,7 +21,7 @@ export default async function AdminUsersPage() {
 
   // Load all users and active team members
   const [users, teamMembers] = await Promise.all([
-    User.find({ role: { $in: ["ADMIN", "TEAM_LEADER", "FOLLOW_UP_TEAM"] } })
+    User.find({ role: { $in: ["ADMIN", "TEAM_LEADER", "FINANCE_LEADER", "FOLLOW_UP_TEAM"] } })
       .populate("teamMemberId", "name groupName")
       .sort({ createdAt: -1 })
       .lean(),
@@ -88,12 +88,18 @@ export default async function AdminUsersPage() {
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-extrabold border shrink-0 ${
                         u.role === "ADMIN"
                           ? "bg-rose-50 text-rose-600 border-rose-200/60"
+                          : u.role === "FINANCE_LEADER"
+                          ? "bg-emerald-50 text-emerald-600 border-emerald-200/60"
                           : u.role === "TEAM_LEADER"
                           ? "bg-orange-50 text-[#FF6B00] border-orange-200/60"
                           : "bg-blue-50 text-blue-600 border-blue-200/60"
                       }`}
                     >
-                      <Shield className="w-2.5 h-2.5" />
+                      {u.role === "FINANCE_LEADER" ? (
+                        <CircleDollarSign className="w-2.5 h-2.5" />
+                      ) : (
+                        <Shield className="w-2.5 h-2.5" />
+                      )}
                       {roleFormatted}
                     </span>
                     <EditUserAssignmentModal user={JSON.parse(JSON.stringify(u))} />
@@ -194,15 +200,21 @@ export default async function AdminUsersPage() {
 
                     <td className="py-4 px-6">
                       <span
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-extrabold ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold ${
                           u.role === "ADMIN"
                             ? "bg-rose-50 text-rose-600 border border-rose-200/60"
+                            : u.role === "FINANCE_LEADER"
+                            ? "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
                             : u.role === "TEAM_LEADER"
                             ? "bg-orange-50 text-[#FF6B00] border border-orange-200/60"
                             : "bg-blue-50 text-blue-600 border border-blue-200/60"
                         }`}
                       >
-                        <ShieldCheck className="w-3.5 h-3.5" />
+                        {u.role === "FINANCE_LEADER" ? (
+                          <CircleDollarSign className="w-3.5 h-3.5" />
+                        ) : (
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                        )}
                         {u.role.replace(/_/g, " ")}
                       </span>
                     </td>
@@ -219,6 +231,8 @@ export default async function AdminUsersPage() {
                         ) : (
                           <span className="text-slate-400 italic">Unassigned</span>
                         )
+                      ) : u.role === "FINANCE_LEADER" ? (
+                        <span className="text-emerald-700 font-semibold">Contributions & Finance</span>
                       ) : (
                         <span className="text-slate-400 font-normal">All Demographics</span>
                       )}

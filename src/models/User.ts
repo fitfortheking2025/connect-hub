@@ -1,7 +1,7 @@
 // src/models/User.ts
 import mongoose, { Schema, Document, models, model } from "mongoose";
 
-export type UserRole = "ADMIN" | "TEAM_LEADER" | "FOLLOW_UP_TEAM" | "MEMBER";
+export type UserRole = "ADMIN" | "TEAM_LEADER" | "FINANCE_LEADER" | "FOLLOW_UP_TEAM" | "MEMBER";
 
 export interface IUser extends Document {
   username: string;
@@ -37,7 +37,7 @@ const UserSchema = new Schema<IUser>(
     role: { 
       type: String, 
       required: true, 
-      enum: ["ADMIN", "TEAM_LEADER", "FOLLOW_UP_TEAM", "MEMBER"], 
+      enum: ["ADMIN", "TEAM_LEADER", "FINANCE_LEADER", "FOLLOW_UP_TEAM", "MEMBER"], 
       default: "FOLLOW_UP_TEAM" 
     },
     teamMemberId: { 
