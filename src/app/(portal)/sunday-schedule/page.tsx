@@ -16,7 +16,7 @@ export default async function AdminSchedulePage({
   const rawRole = String((session?.user as any)?.role || "").trim().toUpperCase();
   const userRole = rawRole.replace(/[\s-]+/g, "_");
 
-  if (userRole !== "ADMIN" && userRole !== "TEAM_LEADER") {
+  if (userRole !== "ADMIN" && userRole !== "TEAM_LEADER" && userRole !== "FINANCE_LEADER") {
     redirect("/");
   }
 

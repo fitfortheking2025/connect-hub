@@ -1,3 +1,4 @@
+// src/app/(portal)/layout.tsx
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -22,13 +23,21 @@ export default async function PortalLayout({
   }
 
   const user = session.user as any;
-  // Case-insensitive check to ensure 'admin' or 'ADMIN' works reliably
-  const isAdmin = String(user?.role || "").toUpperCase() === "ADMIN";
-  const isAdminorTeamLeader = (String(user?.role || "").toUpperCase() === "ADMIN") || (String(user?.role || "").toUpperCase() === "TEAM_LEADER");
+  const role = String(user?.role || "").toUpperCase().replace(/[\s-]+/g, "_");
+
+  const isAdmin = role === "ADMIN";
+  const isFinanceLeader = role === "FINANCE_LEADER";
+  const isAdminorTeamLeader = isAdmin || role === "TEAM_LEADER";
+
+  const getRoleLabel = () => {
+    if (isAdmin) return "Admin";
+    if (isFinanceLeader) return "Finance Leader";
+    if (role === "FOLLOW_UP_TEAM") return "Follow Up";
+    return "Team Leader";
+  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col md:flex-row">
-      
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200/80 p-5 justify-between shrink-0 h-screen sticky top-0 z-30">
         <div className="space-y-6">
@@ -53,8 +62,12 @@ export default async function PortalLayout({
             </div>
           </Link>
 
-          {/* Pass isAdmin to SidebarNav */}
-          <SidebarNav isAdmin={isAdmin} isAdminorTeamLeader={isAdminorTeamLeader} />
+          {/* Pass role flags to SidebarNav */}
+          <SidebarNav
+            isAdmin={isAdmin}
+            isAdminorTeamLeader={isAdminorTeamLeader}
+            isFinanceLeader={isFinanceLeader}
+          />
         </div>
 
         <div className="space-y-2 pt-4 border-t border-slate-100">
@@ -68,7 +81,7 @@ export default async function PortalLayout({
                   {user.name || user.email}
                 </div>
                 <div className="text-[9px] font-black text-orange-500 uppercase tracking-wider">
-                  {isAdmin ? "Admin" : (user.role === "FOLLOW_UP_TEAM" ? "Follow Up" : "Team Leader")}
+                  {getRoleLabel()}
                 </div>
               </div>
             </div>
@@ -108,8 +121,12 @@ export default async function PortalLayout({
           </main>
         </PullToRefresh>
 
-        {/* Pass isAdmin to BottomNavBar */}
-        <BottomNavBar isAdmin={isAdmin} isAdminorTeamLeader={isAdminorTeamLeader}/>
+        {/* Pass role flags to BottomNavBar */}
+        <BottomNavBar
+          isAdmin={isAdmin}
+          isAdminorTeamLeader={isAdminorTeamLeader}
+          isFinanceLeader={isFinanceLeader}
+        />
       </div>
     </div>
   );

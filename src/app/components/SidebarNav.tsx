@@ -1,3 +1,4 @@
+// src/app/components/SidebarNav.tsx
 "use client";
 
 import Link from "next/link";
@@ -8,23 +9,40 @@ import {
   BarChart3, 
   Users,
   ShieldCheck,
-  Calendar
+  Calendar,
+  WalletCards
 } from "lucide-react";
 
 interface SidebarNavProps {
   isAdmin?: boolean;
   isAdminorTeamLeader?: boolean;
+  isFinanceLeader?: boolean;
 }
 
-export default function SidebarNav({ isAdmin = false, isAdminorTeamLeader = false }: SidebarNavProps) {
+export default function SidebarNav({ 
+  isAdmin = false, 
+  isAdminorTeamLeader = false,
+  isFinanceLeader = false 
+}: SidebarNavProps) {
   const pathname = usePathname();
+
+  const canAccessFinances = isAdmin || isFinanceLeader;
 
   const links = [
     { label: "Dashboard", href: "/", icon: LayoutDashboard, exact: true },
     { label: "VIPs & Follow-Up", href: "/vips", icon: Sparkles },
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
     { label: "Connect Team", href: "/connect-team", icon: Users },
-    ...(isAdminorTeamLeader
+    ...(canAccessFinances
+      ? [
+          {
+            label: "Finances",
+            href: "/finances",
+            icon: WalletCards,
+          },
+        ]
+      : []),
+    ...(isAdminorTeamLeader || isFinanceLeader
       ? [
           {
             label: "Sunday Attendance",
