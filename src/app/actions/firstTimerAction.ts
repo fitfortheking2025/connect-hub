@@ -347,3 +347,91 @@ export async function deleteFirstTimerAction(id: string) {
     return { success: false, error: err.message || "Failed to delete VIP record." };
   }
 }
+
+export async function getConnectSummaryAction(targetDateIso?: string) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized." };
+    }
+
+    const role = String((session.user as any).role || "").toUpperCase().replace(/[\s-]+/g, "_");
+    const isAuthorized = role === "ADMIN" || role === "TEAM_LEADER";
+
+    if (!isAuthorized) {
+      return { success: false, error: "Only Team Leaders or Admins can copy updates." };
+    }
+
+    await dbConnect();
+
+    // Determine target Sunday (defaults to the most recent Sunday)
+    let sunday: Date;
+    if (targetDateIso) {
+      sunday = new Date(targetDateIso);
+    } else {
+      sunday = new Date();
+      const day = sunday.getDay(); // 0 is Sunday
+      sunday.setDate(sunday.getDate() - day);
+    }
+
+    const startOfSunday = new Date(sunday);
+    startOfSunday.setHours(0, 0, 0, 0);
+
+    const endOfSunday = new Date(sunday);
+    endOfSunday.setHours(23, 59, 59, 999);
+
+    const records = await FirstTimer.find({
+      createdAt: { $gte: startOfSunday, $lte: endOfSunday },
+    }).lean();
+
+    const totalVips = records.length;
+    let visitorsCount = 0;
+    let firstTimersCount = 0;
+    let connectedCount = 0;
+
+    for (const item of records) {
+      // Visitors: "VISITOR" or "FROM OTHER CHURCH"
+      if (item.iam === "VISITOR" || item.iam === "FROM OTHER CHURCH") {
+        visitorsCount++;
+      }
+      // First Timers: "LOOKING FOR A CHURCH"
+      if (item.iam === "LOOKING FOR A CHURCH") {
+        firstTimersCount++;
+      }
+      
+      if (Boolean(item.startedOne2One)) {
+        connectedCount++;
+      }
+    }
+
+    const formattedDate = startOfSunday.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    const summaryText = [
+      "Connect Updates!",
+      "",
+      `Date: ${formattedDate}`,
+      `VIPs: ${totalVips}`,
+      `Visitors: ${visitorsCount}`,
+      `First Timers: ${firstTimersCount}`,
+      `Connected: ${connectedCount}`,
+    ].join("\n");
+
+    return {
+      success: true,
+      text: summaryText,
+      data: {
+        date: formattedDate,
+        totalVips,
+        visitorsCount,
+        firstTimersCount,
+        connectedCount,
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to generate connect summary." };
+  }
+}

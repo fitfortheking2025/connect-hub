@@ -1,3 +1,4 @@
+// src/app/(portal)/vips/VipsTableClient.tsx
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
@@ -27,7 +28,8 @@ import {
 import { 
   toggleDiscipleshipStatusAction, 
   markBatchAsTextedAction,
-  deleteFirstTimerAction
+  deleteFirstTimerAction,
+  getConnectSummaryAction
 } from "@/app/actions/firstTimerAction";
 import EditFirstTimerModal from "@/app/components/EditFirstTimerModal";
 import { exportConnectedMembersPdf } from "@/lib/exportConnectedPdf";
@@ -123,6 +125,10 @@ export default function VipsTableClient({
   const [mounted, setMounted] = useState(false);
   const [copiedBatch, setCopiedBatch] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Connect Updates Copy States
+  const [copyingUpdates, setCopyingUpdates] = useState(false);
+  const [copiedUpdates, setCopiedUpdates] = useState(false);
 
   // Global Notification Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -238,6 +244,25 @@ export default function VipsTableClient({
     XLSX.utils.book_append_sheet(workbook, worksheet, "Contacts");
     XLSX.writeFile(workbook, `VIP_Phone_Numbers_${MONTHS[safeMonth - 1]}_${safeYear}.xlsx`);
     showToast(`Exported ${exportRows.length} phone numbers to Excel.`);
+  };
+
+  const handleCopyConnectUpdates = () => {
+    if (!canExportPdf) return;
+    setCopyingUpdates(true);
+
+    startTransition(async () => {
+      const res = await getConnectSummaryAction();
+      setCopyingUpdates(false);
+
+      if (res.success && res.text) {
+        await navigator.clipboard.writeText(res.text);
+        setCopiedUpdates(true);
+        showToast("Copied Connect Updates to clipboard!");
+        setTimeout(() => setCopiedUpdates(false), 2500);
+      } else {
+        alert(res.error || "Failed to generate connect updates.");
+      }
+    });
   };
 
   const handleUpdateItem = (updatedItem: any) => {
@@ -396,6 +421,29 @@ export default function VipsTableClient({
           <div className="flex items-center gap-1 sm:gap-1.5">
             {canExportPdf && (
               <>
+                <button
+                  type="button"
+                  disabled={copyingUpdates}
+                  onClick={handleCopyConnectUpdates}
+                  className={`p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 border active:scale-95 ${
+                    copiedUpdates
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                      : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                  }`}
+                  title="Copy formatted Connect Updates for Sunday"
+                >
+                  {copyingUpdates ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                  ) : copiedUpdates ? (
+                    <Check className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <ClipboardCopy className="w-4 h-4 text-indigo-600" />
+                  )}
+                  <span className="hidden lg:inline">
+                    {copiedUpdates ? "Copied Updates!" : "Connect Updates"}
+                  </span>
+                </button>
+
                 <button
                   onClick={handleExportPhoneNumbersExcel}
                   className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
