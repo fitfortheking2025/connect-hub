@@ -17,7 +17,7 @@ import {
   X,
   CreditCard,
   FileText,
-  Clock
+  Clock,
 } from "lucide-react";
 import {
   updateFinanceSettingsAction,
@@ -52,7 +52,9 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
 
   // Reserve inputs
   const [formFunds2025, setFormFunds2025] = useState<number | "">(initialData.funds2025);
-  const [formRemaining2026, setFormRemaining2026] = useState<number | "">(initialData.remainingFunds2026);
+  const [formRemaining2026, setFormRemaining2026] = useState<number | "">(
+    initialData.remainingFunds2026
+  );
 
   // Expense form inputs
   const [expenseName, setExpenseName] = useState("");
@@ -150,7 +152,6 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
 
     startTransition(async () => {
       if (editingExpense) {
-        // UPDATE Existing
         const res = await updateExpenseAction({
           expenseId: editingExpense._id,
           expenseName,
@@ -168,7 +169,6 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
           setFormError(res.error || "Failed to update disbursement.");
         }
       } else {
-        // CREATE New
         const res = await recordExpenseAction({
           expenseName,
           amount: numAmount,
@@ -251,7 +251,10 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{successMsg}</span>
           </div>
-          <button onClick={() => setSuccessMsg(null)} className="text-emerald-600 hover:text-emerald-800">
+          <button
+            onClick={() => setSuccessMsg(null)}
+            className="text-emerald-600 hover:text-emerald-800"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -263,7 +266,10 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{formError}</span>
           </div>
-          <button onClick={() => setFormError(null)} className="text-rose-600 hover:text-rose-800">
+          <button
+            onClick={() => setFormError(null)}
+            className="text-rose-600 hover:text-rose-800"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -385,7 +391,10 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
             <tbody className="divide-y divide-slate-100 text-sm font-medium">
               {data.expenses.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-slate-400 text-xs font-medium">
+                  <td
+                    colSpan={5}
+                    className="py-16 text-center text-slate-400 text-xs font-medium"
+                  >
                     No disbursements recorded yet. Click "Record Expense" to add your first entry.
                   </td>
                 </tr>
@@ -412,7 +421,9 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
                       </td>
 
                       <td className="py-4 px-6 text-xs text-slate-500">
-                        {expense.recordedBy?.fullName || expense.recordedBy?.username || "Admin / Leader"}
+                        {expense.recordedBy?.fullName ||
+                          expense.recordedBy?.username ||
+                          "Admin / Leader"}
                       </td>
 
                       <td className="py-4 px-6 text-right">
@@ -585,10 +596,10 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
         </div>
       )}
 
-      {/* 5. Record / Edit Expense Modal */}
+      {/* 5. Record / Edit Expense Modal (Mobile-friendly responsive grid & layout) */}
       {isExpenseModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white rounded-[28px] border border-slate-200 shadow-2xl p-5 sm:p-6 space-y-4 animate-in zoom-in-95">
+          <div className="w-full max-w-md bg-white rounded-[28px] border border-slate-200 shadow-2xl p-5 sm:p-6 space-y-4 animate-in zoom-in-95 overflow-hidden">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-rose-50 text-rose-600">
@@ -622,8 +633,9 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
+              {/* Responsive inputs: stacks on mobile screen, 2 cols on tablet/desktop */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1 min-w-0">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Amount (₱) *
                   </label>
@@ -639,11 +651,11 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
                       setExpenseAmount(val === "" ? "" : Number(val));
                     }}
                     placeholder="0"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-mono font-extrabold text-slate-900 focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
+                    className="w-full min-w-0 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-mono font-extrabold text-slate-900 focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Expense Date *
                   </label>
@@ -652,7 +664,7 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
                     required
                     value={expenseDate}
                     onChange={(e) => setExpenseDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-rose-500 focus:bg-white transition-all"
+                    className="w-full min-w-0 max-w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-rose-500 focus:bg-white transition-all appearance-none"
                   />
                 </div>
               </div>
@@ -674,13 +686,18 @@ export default function FinancesClient({ initialData }: FinancesClientProps) {
                 <button
                   type="button"
                   onClick={() => setIsExpenseModalOpen(false)}
-                  className="w-1/2 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-all"
+                  className="w-1/2 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition-all active:scale-95"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isPending || !expenseName.trim() || !expenseAmount || Number(expenseAmount) <= 0}
+                  disabled={
+                    isPending ||
+                    !expenseName.trim() ||
+                    !expenseAmount ||
+                    Number(expenseAmount) <= 0
+                  }
                   className="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-md shadow-rose-600/20 flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {isPending ? (
