@@ -1,3 +1,4 @@
+// src/app/components/MobileUserDrawer.tsx
 "use client";
 
 import { useState } from "react";
@@ -20,6 +21,14 @@ export default function MobileUserDrawer({ user, isAdmin }: MobileUserDrawerProp
 
   const displayName = user.name || user.email || "Minister";
   const initials = displayName.charAt(0).toUpperCase();
+
+  const getRoleLabel = () => {
+    if (isAdmin) return "Admin";
+    const r = String(user.role || "").toUpperCase().replace(/[\s-]+/g, "_");
+    if (r === "FINANCE_LEADER") return "Finance Leader";
+    if (r === "FOLLOW_UP_TEAM") return "Follow Up";
+    return "Team Leader";
+  };
 
   return (
     <>
@@ -67,7 +76,7 @@ export default function MobileUserDrawer({ user, isAdmin }: MobileUserDrawerProp
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-100/80 text-[#FF6B00] text-[10px] font-black uppercase">
                       <Shield className="w-2.5 h-2.5" />
-                      {isAdmin ? "Admin" : (user.role === "FOLLOW_UP_TEAM" ? "Follow Up" : "Team Leader")}
+                      {getRoleLabel()}
                     </span>
                   </div>
                 </div>
