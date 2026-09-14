@@ -17,7 +17,9 @@ export default async function ConnectTeamPage({ searchParams }: PageProps) {
   const session = await auth();
   await dbConnect();
 
-  const isAdmin = (session?.user as any)?.role === "ADMIN";
+  const userRole = String((session?.user as any)?.role || "").toUpperCase();
+  const isAdmin = userRole === "ADMIN";
+  const isFinanceLeader = userRole === "FINANCE_LEADER";
 
   const params = await searchParams;
   const query: any = {};
@@ -77,6 +79,7 @@ export default async function ConnectTeamPage({ searchParams }: PageProps) {
         }}
         users={JSON.parse(JSON.stringify(allUsers))}
         isAdmin={isAdmin}
+        isFinanceLeader={isFinanceLeader}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Edit2, X, Shield, Users, Loader2, CheckCircle2 } from "lucide-react";
+import { Edit2, X, Shield, Users, Loader2, CheckCircle2, CircleDollarSign } from "lucide-react";
 import { updateUserAssignmentAction } from "@/app/actions/authActions";
 
 const AGE_GROUPS = [
@@ -17,7 +17,7 @@ interface EditUserModalProps {
     _id: string;
     fullName: string;
     username: string;
-    role: "ADMIN" | "TEAM_LEADER" | "FOLLOW_UP_TEAM";
+    role: "ADMIN" | "TEAM_LEADER" | "FINANCE_LEADER" | "FOLLOW_UP_TEAM";
     assignedAgeGroups?: string[];
     assignedGender?: number | null;
   };
@@ -97,10 +97,11 @@ export default function EditUserAssignmentModal({ user }: EditUserModalProps) {
               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                 System Role
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: "FOLLOW_UP_TEAM", label: "Follow Up" },
                   { id: "TEAM_LEADER", label: "Team Leader" },
+                  { id: "FINANCE_LEADER", label: "Finance Leader" },
                   { id: "ADMIN", label: "Admin" },
                 ].map((r) => (
                   <button
@@ -119,7 +120,7 @@ export default function EditUserAssignmentModal({ user }: EditUserModalProps) {
               </div>
             </div>
 
-            {/* Demographic Scope: Only active for FOLLOW_UP_TEAM */}
+            {/* Role Scope Messaging */}
             {role === "FOLLOW_UP_TEAM" ? (
               <div className="space-y-4 pt-2 border-t border-slate-100">
                 
@@ -176,6 +177,13 @@ export default function EditUserAssignmentModal({ user }: EditUserModalProps) {
                   </div>
                 </div>
 
+              </div>
+            ) : role === "FINANCE_LEADER" ? (
+              <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200/70 text-xs text-emerald-900 font-medium flex items-center gap-2">
+                <CircleDollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>
+                  <strong>Finance Leaders</strong> can view the team roster and manage member <strong>Contributions</strong>. General details and assignments are strictly read-only.
+                </span>
               </div>
             ) : (
               <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/70 text-xs text-amber-900 font-medium flex items-center gap-2">

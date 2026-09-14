@@ -23,13 +23,20 @@ import {
   Award,
   Link2,
   Check,
-  GraduationCap
+  GraduationCap,
+  CircleDollarSign,
+  CalendarCheck,
+  CreditCard
 } from "lucide-react";
 import { 
   createTeamMemberAction, 
   updateTeamMemberAction, 
   toggleMemberActiveStatusAction 
 } from "@/app/actions/teamMemberActions";
+import {
+  getMemberContributionHistoryAction,
+  recordContributionAction
+} from "@/app/actions/contributionActions";
 
 const DISCIPLESHIP_CLASSES = [
   "One2One",
@@ -38,6 +45,12 @@ const DISCIPLESHIP_CLASSES = [
   "Making Disciples",
   "Empowering Leaders",
   "Prophetic & Supernatural Level 1",
+];
+
+const MONTH_NAMES = [
+  "",
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
 
 interface ConnectTeamClientProps {
@@ -50,6 +63,7 @@ interface ConnectTeamClientProps {
   };
   users?: any[];
   isAdmin?: boolean;
+  isFinanceLeader?: boolean;
 }
 
 export default function ConnectTeamClient({
@@ -57,6 +71,7 @@ export default function ConnectTeamClient({
   stats,
   users = [],
   isAdmin = false,
+  isFinanceLeader = false,
 }: ConnectTeamClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -66,15 +81,14 @@ export default function ConnectTeamClient({
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [selectedGroup, setSelectedGroup] = useState(searchParams.get("group") || "ALL");
 
-  // Copy Link Feedback State
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  // Modal State
+  // Modal Navigation
   const [modalMode, setModalMode] = useState<"ADD" | "EDIT" | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "discipleship">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "discipleship" | "contributions">("info");
   const [activeItem, setActiveItem] = useState<any>(null);
 
-  // Form Fields (Google Form Alignment)
+  // Form Fields
   const [formName, setFormName] = useState("");
   const [formNickname, setFormNickname] = useState("");
   const [formGender, setFormGender] = useState<"Male" | "Female">("Male");
@@ -86,16 +100,28 @@ export default function ConnectTeamClient({
   const [formAssignedUserId, setFormAssignedUserId] = useState<string>("");
   const [formActive, setFormActive] = useState(true);
 
-  // Discipleship Fields
+  // Discipleship
   const [formDiscipler, setFormDiscipler] = useState("");
   const [formDisciples, setFormDisciples] = useState("");
   const [formClasses, setFormClasses] = useState<string[]>([]);
   const [formIsPartOfOutreach, setFormIsPartOfOutreach] = useState(false);
 
-  // Photo State
+  // Photo
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [base64Photo, setBase64Photo] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Contribution State
+  const [contribHistory, setContribHistory] = useState<any[]>([]);
+  const [latestPaid, setLatestPaid] = useState<{ year: number; month: number } | null>(null);
+  const [nextDue, setNextDue] = useState<{ year: number; month: number }>({ year: 2026, month: 10 });
+  const [contribAmount, setContribAmount] = useState<number>(100);
+  const [contribMethod, setContribMethod] = useState<"CASH" | "GCASH" | "BANK_TRANSFER" | "OTHER">("CASH");
+  const [contribNotes, setContribNotes] = useState("");
+  const [contribLoading, setContribLoading] = useState(false);
+  const [contribSuccessMsg, setContribSuccessMsg] = useState<string | null>(null);
+
+  const canEditMember = isAdmin || isFinanceLeader;
 
   useEffect(() => {
     setData(initialData);
@@ -121,6 +147,7 @@ export default function ConnectTeamClient({
   };
 
   const handlePhotoSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!isAdmin) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -136,6 +163,22 @@ export default function ConnectTeamClient({
       setBase64Photo(result);
     };
     reader.readAsDataURL(file);
+  };
+
+  const loadContributions = async (memberId: string) => {
+    setContribLoading(true);
+    setContribSuccessMsg(null);
+    const res = await getMemberContributionHistoryAction(memberId);
+    if (res.success) {
+      setContribHistory(res.history || []);
+      if (res.latestPaid && typeof res.latestPaid.year === "number" && typeof res.latestPaid.month === "number") {
+        setLatestPaid({ year: res.latestPaid.year, month: res.latestPaid.month });
+      } else {
+        setLatestPaid(null);
+      }
+      if (res.nextDue) setNextDue(res.nextDue);
+    }
+    setContribLoading(false);
   };
 
   const handleOpenAdd = () => {
@@ -163,7 +206,7 @@ export default function ConnectTeamClient({
   };
 
   const handleOpenEdit = (member: any) => {
-    if (!isAdmin) return;
+    if (!canEditMember) return;
     setActiveItem(member);
     setFormName(member.name || "");
     setFormNickname(member.nickname || "");
@@ -182,11 +225,22 @@ export default function ConnectTeamClient({
     setPhotoPreview(member.photoUrl || null);
     setBase64Photo(null);
     setFormError(null);
-    setActiveTab("info");
+    setContribAmount(100);
+    setContribNotes("");
+    setContribSuccessMsg(null);
+
+    if (isFinanceLeader && !isAdmin) {
+      setActiveTab("contributions");
+    } else {
+      setActiveTab("info");
+    }
+
     setModalMode("EDIT");
+    loadContributions(member._id);
   };
 
   const toggleClassCheckbox = (clsName: string) => {
+    if (!isAdmin) return;
     setFormClasses((prev) =>
       prev.includes(clsName) ? prev.filter((c) => c !== clsName) : [...prev, clsName]
     );
@@ -194,6 +248,7 @@ export default function ConnectTeamClient({
 
   const handleSaveModal = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     if (!formName.trim()) {
       setFormError("Full Name is required.");
       return;
@@ -245,6 +300,56 @@ export default function ConnectTeamClient({
     });
   };
 
+  const calculateCoveredMonths = (amount: number, startYear: number, startMonth: number) => {
+    if (amount < 100 || amount % 100 !== 0) return [];
+    const count = amount / 100;
+    const months = [];
+    let curYear = startYear;
+    let curMonth = startMonth;
+
+    for (let i = 0; i < count; i++) {
+      months.push({ year: curYear, month: curMonth });
+      if (curMonth === 12) {
+        curYear += 1;
+        curMonth = 1;
+      } else {
+        curMonth += 1;
+      }
+    }
+    return months;
+  };
+
+  const projectedMonths = calculateCoveredMonths(contribAmount, nextDue.year, nextDue.month);
+
+  const handleRecordContribution = () => {
+    if (!activeItem || contribAmount < 100 || contribAmount % 100 !== 0) {
+      setFormError("Amount must be a valid multiple of ₱100.");
+      return;
+    }
+    setFormError(null);
+    setContribSuccessMsg(null);
+
+    startTransition(async () => {
+      const res = await recordContributionAction({
+        memberId: activeItem._id,
+        amount: contribAmount,
+        paymentMethod: contribMethod,
+        notes: contribNotes,
+      });
+
+      if (res.success && res.endPeriod) {
+        setContribSuccessMsg(
+          `Recorded ₱${contribAmount} successfully! Covered through ${MONTH_NAMES[res.endPeriod.month]} ${res.endPeriod.year}.`
+        );
+        setContribNotes("");
+        await loadContributions(activeItem._id);
+        router.refresh();
+      } else {
+        setFormError(res.error || "Failed to record contribution.");
+      }
+    });
+  };
+
   const handleToggleStatus = (id: string, currentStatus: boolean) => {
     if (!isAdmin) return;
     setData((prev) =>
@@ -265,7 +370,6 @@ export default function ConnectTeamClient({
           Roster Overview
         </div>
         <div className="flex items-center gap-2">
-          {/* Discipleship Matrix Link */}
           <Link
             href="/connect-team/discipleship"
             className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-black border border-indigo-200/80 transition-all active:scale-95 shadow-xs"
@@ -454,7 +558,7 @@ export default function ConnectTeamClient({
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {isAdmin &&
+                  {isAdmin && (
                     <button
                       onClick={() => handleCopyLink(member)}
                       className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
@@ -466,7 +570,7 @@ export default function ConnectTeamClient({
                         <Link2 className="w-3 h-3" />
                       )}
                     </button>
-                  }
+                  )}
 
                   <button
                     onClick={() => handleToggleStatus(member._id, member.active)}
@@ -481,13 +585,17 @@ export default function ConnectTeamClient({
                     {member.active ? "Active" : "Inactive"}
                   </button>
 
-                  {isAdmin && (
+                  {canEditMember && (
                     <button
                       onClick={() => handleOpenEdit(member)}
                       className="p-1.5 rounded-lg bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00] transition-colors"
-                      title="Edit Member"
+                      title={isFinanceLeader && !isAdmin ? "Contributions" : "Edit Member"}
                     >
-                      <Pencil className="w-3 h-3" />
+                      {isFinanceLeader && !isAdmin ? (
+                        <CircleDollarSign className="w-3 h-3 text-emerald-600" />
+                      ) : (
+                        <Pencil className="w-3 h-3" />
+                      )}
                     </button>
                   )}
                 </div>
@@ -508,13 +616,13 @@ export default function ConnectTeamClient({
                 <th className="py-4 px-6">Contact & Email</th>
                 <th className="py-4 px-6">Discipleship</th>
                 <th className="py-4 px-4 text-center">Status</th>
-                {isAdmin && <th className="py-4 px-4 text-center">Action</th>}
+                {canEditMember && <th className="py-4 px-4 text-center">Action</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm font-medium">
               {data.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 6 : 5} className="py-16 text-center text-slate-400 text-xs font-medium">
+                  <td colSpan={canEditMember ? 6 : 5} className="py-16 text-center text-slate-400 text-xs font-medium">
                     No team members match your criteria.
                   </td>
                 </tr>
@@ -631,27 +739,33 @@ export default function ConnectTeamClient({
                         </button>
                       </td>
 
-                      {isAdmin && (
+                      {canEditMember && (
                         <td className="py-4 px-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => handleCopyLink(member)}
-                              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
-                              title="Copy Profile Update Link"
-                            >
-                              {copiedCode === targetCode ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              ) : (
-                                <Link2 className="w-3.5 h-3.5" />
-                              )}
-                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleCopyLink(member)}
+                                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+                                title="Copy Profile Update Link"
+                              >
+                                {copiedCode === targetCode ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                ) : (
+                                  <Link2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            )}
 
                             <button
                               onClick={() => handleOpenEdit(member)}
                               className="p-2 rounded-xl bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00] transition-colors"
-                              title="Edit Member (Admin)"
+                              title={isFinanceLeader && !isAdmin ? "Manage Contributions" : "Edit Member"}
                             >
-                              <Pencil className="w-3.5 h-3.5" />
+                              {isFinanceLeader && !isAdmin ? (
+                                <CircleDollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                              ) : (
+                                <Pencil className="w-3.5 h-3.5" />
+                              )}
                             </button>
                           </div>
                         </td>
@@ -666,16 +780,24 @@ export default function ConnectTeamClient({
       </div>
 
       {/* 6. Add / Edit Member Modal */}
-      {modalMode && isAdmin && (
+      {modalMode && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-xl max-h-[90vh] bg-white rounded-[28px] border border-slate-200 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95">
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-orange-50 text-[#FF6B00]">
-                  <ShieldCheck className="w-4 h-4" />
+                <div className={`p-2 rounded-xl ${isFinanceLeader && !isAdmin ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-[#FF6B00]"}`}>
+                  {isFinanceLeader && !isAdmin ? (
+                    <CircleDollarSign className="w-4 h-4" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )}
                 </div>
                 <h3 className="font-black text-lg text-[#111827]">
-                  {modalMode === "ADD" ? "Register Connect Member" : "Edit Member Profile"}
+                  {modalMode === "ADD" 
+                    ? "Register Connect Member" 
+                    : isFinanceLeader && !isAdmin 
+                    ? `Contributions: ${activeItem?.name}` 
+                    : "Edit Member Profile"}
                 </h3>
               </div>
               <button
@@ -686,6 +808,14 @@ export default function ConnectTeamClient({
               </button>
             </div>
 
+            {/* Read-Only Notice for Finance Leader */}
+            {isFinanceLeader && !isAdmin && activeTab !== "contributions" && (
+              <div className="px-5 py-2 bg-amber-50 border-b border-amber-200/80 text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                <span>View-only mode: Only administrators can modify member details and assignments.</span>
+              </div>
+            )}
+
+            {/* Navigation Tabs */}
             <div className="flex border-b border-slate-100 bg-slate-50/60 px-5 pt-2">
               <button
                 type="button"
@@ -707,248 +837,473 @@ export default function ConnectTeamClient({
                     : "border-transparent text-slate-400 hover:text-slate-600"
                 }`}
               >
-                Discipleship & Workshops
+                Discipleship
               </button>
-            </div>
-
-            <form onSubmit={handleSaveModal} className="flex-1 overflow-y-auto p-5 space-y-4">
-              {formError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600">
-                  {formError}
-                </div>
-              )}
-
-              {activeTab === "info" ? (
-                <div className="space-y-3.5">
-                  <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                    <div className="relative h-16 w-16 rounded-2xl overflow-hidden border bg-white shrink-0 flex items-center justify-center shadow-sm">
-                      {photoPreview ? (
-                        <Image src={photoPreview} alt="Preview" fill className="object-cover" />
-                      ) : (
-                        <Users className="w-6 h-6 text-slate-300" />
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-700 block">
-                        Birthday / Greeting Picture
-                      </label>
-                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100 shadow-sm transition-all">
-                        <UploadCloud className="w-3.5 h-3.5 text-[#FF6B00]" /> Choose Photo
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePhotoSelect}
-                          className="hidden"
-                        />
-                      </label>
-                      <span className="text-[10px] text-slate-400 block">Square photos recommended (Max 8MB)</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full Name *</label>
-                      <input
-                        type="text"
-                        value={formName}
-                        onChange={(e) => setFormName(e.target.value)}
-                        placeholder="Juan Dela Cruz"
-                        required
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nickname</label>
-                      <input
-                        type="text"
-                        value={formNickname}
-                        onChange={(e) => setFormNickname(e.target.value)}
-                        placeholder="e.g. Bro Juan"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gender</label>
-                      <select
-                        value={formGender}
-                        onChange={(e) => setFormGender(e.target.value as "Male" | "Female")}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Birthdate</label>
-                      <input
-                        type="date"
-                        value={formBirthdate}
-                        onChange={(e) => setFormBirthdate(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact Number</label>
-                      <input
-                        type="text"
-                        value={formContactNumber}
-                        onChange={(e) => setFormContactNumber(e.target.value)}
-                        placeholder="0917XXXXXXX"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Email Address</label>
-                      <input
-                        type="email"
-                        value={formEmail}
-                        onChange={(e) => setFormEmail(e.target.value)}
-                        placeholder="juan@gmail.com"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Social Media (FB / IG)</label>
-                    <input
-                      type="text"
-                      value={formSocialMedia}
-                      onChange={(e) => setFormSocialMedia(e.target.value)}
-                      placeholder="e.g. facebook.com/juandelacruz"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Roster Role</label>
-                      <select
-                        value={formGroup}
-                        onChange={(e) => setFormGroup(e.target.value as any)}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                      >
-                        <option value="Members">Members</option>
-                        <option value="Team Leaders">Team Leaders</option>
-                        <option value="Follow Up Team">Follow Up Team</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Portal User Link</label>
-                      <select
-                        value={formAssignedUserId}
-                        onChange={(e) => setFormAssignedUserId(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                      >
-                        <option value="">None (Unlinked)</option>
-                        {users.map((u) => (
-                          <option key={u._id} value={u._id}>
-                            {u.fullName || u.username} ({u.role})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-2 pt-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={formActive}
-                      onChange={(e) => setFormActive(e.target.checked)}
-                      className="w-4 h-4 rounded text-[#FF6B00] focus:ring-[#FF6B00]"
-                    />
-                    <span className="text-xs font-bold text-slate-700">Active Connect Member</span>
-                  </label>
-                </div>
-              ) : (
-                <div className="space-y-3.5">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Discipler</label>
-                    <input
-                      type="text"
-                      value={formDiscipler}
-                      onChange={(e) => setFormDiscipler(e.target.value)}
-                      placeholder="Name of your discipler"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Disciple(s)</label>
-                    <textarea
-                      rows={2}
-                      value={formDisciples}
-                      onChange={(e) => setFormDisciples(e.target.value)}
-                      placeholder="Put each disciple on a new line..."
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00]"
-                    />
-                  </div>
-
-                  <div className="space-y-2 pt-1">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                      <Award className="w-3 h-3 text-indigo-500" /> Discipleship Classes & Workshops
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
-                      {DISCIPLESHIP_CLASSES.map((cls) => {
-                        const checked = formClasses.includes(cls);
-                        return (
-                          <label
-                            key={cls}
-                            className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
-                              checked
-                                ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                                : "bg-white border-slate-200/70 text-slate-600 hover:bg-slate-100"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleClassCheckbox(cls)}
-                              className="w-3.5 h-3.5 rounded text-indigo-600"
-                            />
-                            <span className="truncate">{cls}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-2 pt-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={formIsPartOfOutreach}
-                      onChange={(e) => setFormIsPartOfOutreach(e.target.checked)}
-                      className="w-4 h-4 rounded text-[#FF6B00] focus:ring-[#FF6B00]"
-                    />
-                    <span className="text-xs font-bold text-slate-700">Part of an Outreach Ministry</span>
-                  </label>
-                </div>
-              )}
-
-              <div className="pt-4 border-t border-slate-100 flex gap-2">
+              {modalMode === "EDIT" && (
                 <button
                   type="button"
-                  onClick={() => setModalMode(null)}
-                  className="w-1/3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all"
+                  onClick={() => setActiveTab("contributions")}
+                  className={`pb-2 px-3 text-xs font-extrabold border-b-2 flex items-center gap-1.5 transition-all ${
+                    activeTab === "contributions"
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-slate-400 hover:text-slate-600"
+                  }`}
                 >
-                  Cancel
+                  <CircleDollarSign className="w-3.5 h-3.5" />
+                  Contributions
                 </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="w-2/3 py-2.5 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-xs shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                >
-                  {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Minister"}
-                </button>
+              )}
+            </div>
+
+            {/* Modal Body */}
+            {activeTab === "contributions" ? (
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {formError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600">
+                    {formError}
+                  </div>
+                )}
+                {contribSuccessMsg && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{contribSuccessMsg}</span>
+                  </div>
+                )}
+
+                {/* Status Card */}
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-200/80 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                      Payment Status
+                    </span>
+                    <div className="text-base font-black text-emerald-950 mt-0.5">
+                      {latestPaid
+                        ? `Paid through: ${MONTH_NAMES[latestPaid.month]} ${latestPaid.year}`
+                        : "No contributions yet (starts Oct 2026)"}
+                    </div>
+                    <span className="text-[11px] text-emerald-700 font-medium">
+                      Next due month: <strong>{MONTH_NAMES[nextDue.month]} {nextDue.year}</strong>
+                    </span>
+                  </div>
+                  <div className="h-10 w-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
+                    ₱100
+                  </div>
+                </div>
+
+                {/* Record Form */}
+                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-emerald-600" /> Add Contribution
+                    </label>
+                    <span className="text-[10px] font-bold text-slate-400">Strictly ₱100/mo</span>
+                  </div>
+
+                  {/* Preset Amount Chips */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { amt: 100, label: "₱100 (1 mo)" },
+                      { amt: 300, label: "₱300 (3 mos)" },
+                      { amt: 500, label: "₱500 (5 mos)" },
+                      { amt: 1000, label: "₱1,000 (10 mos)" },
+                    ].map((chip) => (
+                      <button
+                        key={chip.amt}
+                        type="button"
+                        onClick={() => setContribAmount(chip.amt)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                          contribAmount === chip.amt
+                            ? "bg-emerald-600 text-white shadow-sm"
+                            : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Multiple of 100 Input */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Amount (₱) *
+                      </label>
+                      <input
+                        type="number"
+                        step={100}
+                        min={100}
+                        value={contribAmount}
+                        onChange={(e) => setContribAmount(Number(e.target.value))}
+                        className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-[#111827] focus:outline-none focus:border-emerald-600"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Payment Method
+                      </label>
+                      <select
+                        value={contribMethod}
+                        onChange={(e) => setContribMethod(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-[#111827] focus:outline-none focus:border-emerald-600"
+                      >
+                        <option value="CASH">Cash</option>
+                        <option value="GCASH">GCash</option>
+                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Real-time Dynamic Projection Preview */}
+                  {projectedMonths.length > 0 && (
+                    <div className="p-3 rounded-xl bg-white border border-emerald-200/80 space-y-1.5 shadow-xs">
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className="text-slate-600">Coverage Preview:</span>
+                        <span className="text-emerald-700 font-extrabold">
+                          Covers until: {MONTH_NAMES[projectedMonths[projectedMonths.length - 1].month]} {projectedMonths[projectedMonths.length - 1].year}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {projectedMonths.map((m, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-mono font-bold"
+                          >
+                            ✓ {MONTH_NAMES[m.month]} {m.year}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notes / Reference */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Notes / Reference (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={contribNotes}
+                      onChange={(e) => setContribNotes(e.target.value)}
+                      placeholder="e.g. GCash Ref #1234..."
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isPending || contribAmount < 100 || contribAmount % 100 !== 0}
+                    onClick={handleRecordContribution}
+                    className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                  >
+                    {isPending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <CircleDollarSign className="w-3.5 h-3.5" />
+                        Record ₱{contribAmount} Contribution
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Ledger History List */}
+                <div className="space-y-2 pt-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                    <CalendarCheck className="w-3 h-3 text-slate-400" /> Recorded Months Ledger
+                  </div>
+                  {contribLoading ? (
+                    <div className="py-6 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading payment ledger...
+                    </div>
+                  ) : contribHistory.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-400 border border-dashed rounded-xl">
+                      No contributions logged for this member.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden max-h-48 overflow-y-auto">
+                      {contribHistory.map((entry) => (
+                        <div key={entry._id} className="p-2.5 px-3 bg-white flex items-center justify-between text-xs hover:bg-slate-50">
+                          <div>
+                            <span className="font-extrabold text-slate-800 block">
+                              {MONTH_NAMES[entry.month]} {entry.year}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              By {entry.recordedBy?.fullName || "Leader"} • {entry.paymentMethod}
+                              {entry.notes && ` • ${entry.notes}`}
+                            </span>
+                          </div>
+                          <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 text-xs">
+                            ₱{entry.amount}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </form>
+            ) : (
+              <form onSubmit={handleSaveModal} className="flex-1 overflow-y-auto p-5 space-y-4">
+                {formError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-bold text-rose-600">
+                    {formError}
+                  </div>
+                )}
+
+                {activeTab === "info" ? (
+                  <div className="space-y-3.5">
+                    <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                      <div className="relative h-16 w-16 rounded-2xl overflow-hidden border bg-white shrink-0 flex items-center justify-center shadow-sm">
+                        {photoPreview ? (
+                          <Image src={photoPreview} alt="Preview" fill className="object-cover" />
+                        ) : (
+                          <Users className="w-6 h-6 text-slate-300" />
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-700 block">
+                          Birthday / Greeting Picture
+                        </label>
+                        {isAdmin && (
+                          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 cursor-pointer hover:bg-slate-100 shadow-sm transition-all">
+                            <UploadCloud className="w-3.5 h-3.5 text-[#FF6B00]" /> Choose Photo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoSelect}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                        <span className="text-[10px] text-slate-400 block">Square photos recommended (Max 8MB)</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full Name *</label>
+                        <input
+                          type="text"
+                          value={formName}
+                          disabled={!isAdmin}
+                          onChange={(e) => setFormName(e.target.value)}
+                          placeholder="Juan Dela Cruz"
+                          required
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nickname</label>
+                        <input
+                          type="text"
+                          value={formNickname}
+                          disabled={!isAdmin}
+                          onChange={(e) => setFormNickname(e.target.value)}
+                          placeholder="e.g. Bro Juan"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gender</label>
+                        <select
+                          value={formGender}
+                          disabled={!isAdmin}
+                          onChange={(e) => setFormGender(e.target.value as "Male" | "Female")}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                        >
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Birthdate</label>
+                        <input
+                          type="date"
+                          value={formBirthdate}
+                          disabled={!isAdmin}
+                          onChange={(e) => setFormBirthdate(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact Number</label>
+                        <input
+                          type="text"
+                          value={formContactNumber}
+                          disabled={!isAdmin}
+                          onChange={(e) => setFormContactNumber(e.target.value)}
+                          placeholder="0917XXXXXXX"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Email Address</label>
+                        <input
+                          type="email"
+                          value={formEmail}
+                          disabled={!isAdmin}
+                          onChange={(e) => setFormEmail(e.target.value)}
+                          placeholder="juan@gmail.com"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Social Media (FB / IG)</label>
+                      <input
+                        type="text"
+                        value={formSocialMedia}
+                        disabled={!isAdmin}
+                        onChange={(e) => setFormSocialMedia(e.target.value)}
+                        placeholder="e.g. facebook.com/juandelacruz"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Roster Role</label>
+                        <select
+                          value={formGroup}
+                          disabled={!isAdmin}
+                          onChange={(e) => setFormGroup(e.target.value as any)}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                        >
+                          <option value="Members">Members</option>
+                          <option value="Team Leaders">Team Leaders</option>
+                          <option value="Follow Up Team">Follow Up Team</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Portal User Link</label>
+                        <select
+                          value={formAssignedUserId}
+                          disabled={!isAdmin}
+                          onChange={(e) => setFormAssignedUserId(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                        >
+                          <option value="">None (Unlinked)</option>
+                          {users.map((u) => (
+                            <option key={u._id} value={u._id}>
+                              {u.fullName || u.username} ({u.role})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <label className="flex items-center gap-2 pt-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={formActive}
+                        disabled={!isAdmin}
+                        onChange={(e) => setFormActive(e.target.checked)}
+                        className="w-4 h-4 rounded text-[#FF6B00] focus:ring-[#FF6B00] disabled:opacity-50"
+                      />
+                      <span className="text-xs font-bold text-slate-700">Active Connect Member</span>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-3.5">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Discipler</label>
+                      <input
+                        type="text"
+                        value={formDiscipler}
+                        disabled={!isAdmin}
+                        onChange={(e) => setFormDiscipler(e.target.value)}
+                        placeholder="Name of your discipler"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Disciple(s)</label>
+                      <textarea
+                        rows={2}
+                        value={formDisciples}
+                        disabled={!isAdmin}
+                        onChange={(e) => setFormDisciples(e.target.value)}
+                        placeholder="Put each disciple on a new line..."
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-[#111827] focus:outline-none focus:border-[#FF6B00] disabled:bg-slate-100 disabled:text-slate-500"
+                      />
+                    </div>
+
+                    <div className="space-y-2 pt-1">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                        <Award className="w-3 h-3 text-indigo-500" /> Discipleship Classes & Workshops
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+                        {DISCIPLESHIP_CLASSES.map((cls) => {
+                          const checked = formClasses.includes(cls);
+                          return (
+                            <label
+                              key={cls}
+                              className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all ${
+                                !isAdmin ? "cursor-default opacity-80" : "cursor-pointer"
+                              } ${
+                                checked
+                                  ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                                  : "bg-white border-slate-200/70 text-slate-600 hover:bg-slate-100"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={!isAdmin}
+                                onChange={() => toggleClassCheckbox(cls)}
+                                className="w-3.5 h-3.5 rounded text-indigo-600 disabled:opacity-50"
+                              />
+                              <span className="truncate">{cls}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <label className="flex items-center gap-2 pt-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={formIsPartOfOutreach}
+                        disabled={!isAdmin}
+                        onChange={(e) => setFormIsPartOfOutreach(e.target.checked)}
+                        className="w-4 h-4 rounded text-[#FF6B00] focus:ring-[#FF6B00] disabled:opacity-50"
+                      />
+                      <span className="text-xs font-bold text-slate-700">Part of an Outreach Ministry</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Submit Action only for Admin on Info / Discipleship tabs */}
+                <div className="pt-4 border-t border-slate-100 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalMode(null)}
+                    className={`${isAdmin ? "w-1/3" : "w-full"} py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all`}
+                  >
+                    {isAdmin ? "Cancel" : "Close"}
+                  </button>
+                  {isAdmin && (
+                    <button
+                      type="submit"
+                      disabled={isPending}
+                      className="w-2/3 py-2.5 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-xs shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                    >
+                      {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Minister"}
+                    </button>
+                  )}
+                </div>
+              </form>
+            )}
+
           </div>
         </div>
       )}
