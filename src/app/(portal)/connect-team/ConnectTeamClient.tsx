@@ -115,7 +115,7 @@ export default function ConnectTeamClient({
   const [contribHistory, setContribHistory] = useState<any[]>([]);
   const [latestPaid, setLatestPaid] = useState<{ year: number; month: number } | null>(null);
   const [nextDue, setNextDue] = useState<{ year: number; month: number }>({ year: 2026, month: 10 });
-  const [contribAmount, setContribAmount] = useState<number>(100);
+  const [contribAmount, setContribAmount] = useState<number | "">(100);
   const [contribMethod, setContribMethod] = useState<"CASH" | "GCASH" | "BANK_TRANSFER" | "OTHER">("CASH");
   const [contribNotes, setContribNotes] = useState("");
   const [contribLoading, setContribLoading] = useState(false);
@@ -319,10 +319,11 @@ export default function ConnectTeamClient({
     return months;
   };
 
-  const projectedMonths = calculateCoveredMonths(contribAmount, nextDue.year, nextDue.month);
+  const numericContribAmount = Number(contribAmount) || 0;
+  const projectedMonths = calculateCoveredMonths(numericContribAmount, nextDue.year, nextDue.month);
 
   const handleRecordContribution = () => {
-    if (!activeItem || contribAmount < 100 || contribAmount % 100 !== 0) {
+    if (!activeItem || numericContribAmount < 100 || numericContribAmount % 100 !== 0) {
       setFormError("Amount must be a valid multiple of ₱100.");
       return;
     }
@@ -332,14 +333,14 @@ export default function ConnectTeamClient({
     startTransition(async () => {
       const res = await recordContributionAction({
         memberId: activeItem._id,
-        amount: contribAmount,
+        amount: numericContribAmount,
         paymentMethod: contribMethod,
         notes: contribNotes,
       });
 
       if (res.success && res.endPeriod) {
         setContribSuccessMsg(
-          `Recorded ₱${contribAmount} successfully! Covered through ${MONTH_NAMES[res.endPeriod.month]} ${res.endPeriod.year}.`
+          `Recorded ₱${numericContribAmount.toLocaleString()} successfully! Covered through ${MONTH_NAMES[res.endPeriod.month]} ${res.endPeriod.year}.`
         );
         setContribNotes("");
         await loadContributions(activeItem._id);
@@ -918,7 +919,7 @@ export default function ConnectTeamClient({
                         type="button"
                         onClick={() => setContribAmount(chip.amt)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all active:scale-95 ${
-                          contribAmount === chip.amt
+                          numericContribAmount === chip.amt
                             ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/30"
                             : "bg-slate-50 border border-slate-200 text-slate-700 hover:bg-emerald-50/50 hover:border-emerald-200"
                         }`}
@@ -939,7 +940,16 @@ export default function ConnectTeamClient({
                         step={100}
                         min={100}
                         value={contribAmount}
-                        onChange={(e) => setContribAmount(Number(e.target.value))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "") {
+                            setContribAmount("");
+                          } else {
+                            setContribAmount(Number(val));
+                          }
+                        }}
+                        placeholder="100"
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm font-extrabold text-[#111827] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all font-mono"
                       />
                     </div>
@@ -960,11 +970,11 @@ export default function ConnectTeamClient({
                     </div>
                   </div>
 
-                  {/* 2. Renamed & Clearer New Payment Preview */}
+                  {/* Renamed & Clearer New Payment Preview */}
                   {projectedMonths.length > 0 && (
                     <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/90 space-y-1.5">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-600 font-bold">New Payment Preview (+₱{contribAmount.toLocaleString()}):</span>
+                        <span className="text-slate-600 font-bold">New Payment Preview (+₱{numericContribAmount.toLocaleString()}):</span>
                         <span className="text-emerald-800 font-black">
                           Will advance to: {MONTH_NAMES[projectedMonths[projectedMonths.length - 1].month]} {projectedMonths[projectedMonths.length - 1].year}
                         </span>
@@ -998,7 +1008,7 @@ export default function ConnectTeamClient({
 
                   <button
                     type="button"
-                    disabled={isPending || contribAmount < 100 || contribAmount % 100 !== 0}
+                    disabled={isPending || numericContribAmount < 100 || numericContribAmount % 100 !== 0}
                     onClick={handleRecordContribution}
                     className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-600/25 flex items-center justify-center gap-1.5 transition-all active:scale-[0.99] disabled:opacity-50"
                   >
@@ -1007,7 +1017,7 @@ export default function ConnectTeamClient({
                     ) : (
                       <>
                         <CircleDollarSign className="w-4 h-4" />
-                        Record ₱{contribAmount.toLocaleString()} Contribution
+                        Record ₱{numericContribAmount.toLocaleString()} Contribution
                       </>
                     )}
                   </button>
