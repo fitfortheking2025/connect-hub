@@ -13,7 +13,7 @@ export function getVipScopeFilter(user?: UserScopeContext): Record<string, any> 
   const role = (user.role || "").toUpperCase();
 
   // Team Leader & Admin see all records
-  if (role === "TEAM_LEADER" || role === "ADMIN") {
+  if (role === "TEAM_LEADER" || role === "ADMIN" || role === "FINANCE_LEADER") {
     return {};
   }
 
