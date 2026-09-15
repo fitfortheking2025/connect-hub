@@ -21,6 +21,7 @@ import { createFirstTimerAction, getActiveMembersPublicAction } from "@/app/acti
 import ApproachedByAutocomplete from "@/app/components/ApproachedByAutocomplete";
 import OfflineSyncBadge from "@/app/components/OfflineSyncBadge";
 import { savePendingVip, OfflineVipRecord } from "@/lib/offlineDb";
+import TempCsvUploader from "../components/TempCsvUploader";
 
 export default function StandaloneIntakePage() {
   const formRef = useRef<HTMLFormElement>(null);
@@ -259,7 +260,7 @@ export default function StandaloneIntakePage() {
             <span className="text-[10px] font-bold text-[#FF6B00] block leading-tight">River of God</span>
           </div>
         </div>
-
+        {/* <TempCsvUploader /> */}
         <div className="flex items-center gap-1.5 shrink-0">
           <OfflineSyncBadge refreshTrigger={queueCounter} />
           <Link 
