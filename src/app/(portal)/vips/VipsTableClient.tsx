@@ -100,7 +100,6 @@ function getAgeGroupBadgeStyle(ageGroup?: string) {
   }
 }
 
-// Helper to write node image to clipboard with fallback download
 async function copyElementImageToClipboard(element: HTMLElement, fallbackFilename = "card.png"): Promise<boolean> {
   try {
     const blob = await toBlob(element, {
@@ -163,7 +162,6 @@ export default function VipsTableClient({
   const [copiedBatch, setCopiedBatch] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Hidden offscreen card refs & active states
   const summaryCardRef = useRef<HTMLDivElement>(null);
   const vipCardRef = useRef<HTMLDivElement>(null);
   const [activeVipCardData, setActiveVipCardData] = useState<VipCardData | null>(null);
@@ -171,7 +169,6 @@ export default function VipsTableClient({
   const [copyingSummaryImg, setCopyingSummaryImg] = useState(false);
   const [copiedSummaryImg, setCopiedSummaryImg] = useState(false);
 
-  // Global Notification Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -210,13 +207,54 @@ export default function VipsTableClient({
     .map((v) => formatPhilippineMobile(v.contact)!)
     .filter(Boolean);
 
-  // Calculate live summary figures for the Connect Updates card
+  // Target Sunday Date: find the most recent Sunday from logged records, or fallback to the latest Sunday
+  const targetSundayDate = (() => {
+    const sundayRecords = data.filter((item) => {
+      if (!item.createdAt) return false;
+      return new Date(item.createdAt).getDay() === 0;
+    });
+
+    if (sundayRecords.length > 0) {
+      const d = new Date(sundayRecords[0].createdAt);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    if (data.length > 0 && data[0]?.createdAt) {
+      const d = new Date(data[0].createdAt);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    const today = new Date();
+    const d = new Date(today);
+    d.setDate(today.getDate() - today.getDay());
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  })();
+
+  // Filter records strictly for that single Sunday
+  const targetSundayRecords = data.filter((item) => {
+    if (!item.createdAt) return false;
+    const itemDate = new Date(item.createdAt);
+    return (
+      itemDate.getFullYear() === targetSundayDate.getFullYear() &&
+      itemDate.getMonth() === targetSundayDate.getMonth() &&
+      itemDate.getDate() === targetSundayDate.getDate()
+    );
+  });
+
+  const targetSundayConnected = targetSundayRecords.filter((item) =>
+    Boolean(item.startedOne2One ?? item.startedOne2one)
+  );
+
   const summaryData: ConnectUpdatesData = {
-    date: `${MONTHS[safeMonth - 1]} ${safeYear}`,
-    vips: data.length,
-    visitors: data.filter((d) => (d.iam || "").toUpperCase().includes("VISITOR")).length,
-    firstTimers: data.filter((d) => !(d.iam || "").toUpperCase().includes("VISITOR")).length,
-    connected: connectedMembers.length,
+    date: targetSundayDate.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }),
+    vips: targetSundayRecords.length,
+    visitors: targetSundayRecords.filter((d) => (d.iam || "").toUpperCase().includes("VISITOR")).length,
+    firstTimers: targetSundayRecords.filter((d) => !(d.iam || "").toUpperCase().includes("VISITOR")).length,
+    connected: targetSundayConnected.length,
   };
 
   const updateFilters = (
@@ -295,14 +333,13 @@ export default function VipsTableClient({
     showToast(`Exported ${exportRows.length} phone numbers to Excel.`);
   };
 
-  // Copy Weekly Summary as Image
   const handleCopySummaryCardImage = async () => {
     if (!summaryCardRef.current || copyingSummaryImg) return;
     setCopyingSummaryImg(true);
 
     const ok = await copyElementImageToClipboard(
       summaryCardRef.current,
-      `connect-updates-${safeMonth}-${safeYear}.png`
+      `connect-updates-${summaryData.date.toLowerCase().replace(/\s+/g, "-")}.png`
     );
 
     setCopyingSummaryImg(false);
@@ -315,7 +352,6 @@ export default function VipsTableClient({
     }
   };
 
-  // Copy Single VIP Details as Image
   const handleCopyVipDetailsImage = async (item: any) => {
     const gender = getGenderInfo(item.gender);
     const dateFormatted = new Date(item.createdAt).toLocaleDateString("en-US", {
@@ -336,13 +372,13 @@ export default function VipsTableClient({
       invitedBy: item.invitedBy || undefined,
       connectedWith: item.connectedWith || undefined,
       discipleshipStarted: Boolean(item.startedOne2One ?? item.startedOne2one),
-      date: dateFormatted
+      date: dateFormatted,
+      notes: item.updateReport || undefined,
     };
 
     setActiveVipCardData(cardPayload);
     setCopiedId(String(item._id));
 
-    // Wait one microtask for the offscreen node to render with new data
     setTimeout(async () => {
       if (!vipCardRef.current) return;
       const ok = await copyElementImageToClipboard(
@@ -688,7 +724,6 @@ export default function VipsTableClient({
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {/* Copy VIP Details as Image */}
                     <button
                       type="button"
                       onClick={() => handleCopyVipDetailsImage(item)}
@@ -955,7 +990,6 @@ export default function VipsTableClient({
 
                       <td className="py-4 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          {/* Copy VIP Details as Image Button */}
                           <button
                             type="button"
                             onClick={() => handleCopyVipDetailsImage(item)}
