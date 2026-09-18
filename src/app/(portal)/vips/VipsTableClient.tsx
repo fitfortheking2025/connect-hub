@@ -1,10 +1,11 @@
 // src/app/(portal)/vips/VipsTableClient.tsx
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as XLSX from "xlsx";
+import { toBlob } from "html-to-image";
 import { 
   Search, 
   Calendar, 
@@ -20,19 +21,20 @@ import {
   UserCheck,
   FileText,
   FileSpreadsheet,
-  ClipboardCopy,
   Trash2,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ImageIcon
 } from "lucide-react";
 import { 
   toggleDiscipleshipStatusAction, 
   markBatchAsTextedAction,
-  deleteFirstTimerAction,
-  getConnectSummaryAction
+  deleteFirstTimerAction
 } from "@/app/actions/firstTimerAction";
 import EditFirstTimerModal from "@/app/components/EditFirstTimerModal";
 import { exportConnectedMembersPdf } from "@/lib/exportConnectedPdf";
+import { ConnectUpdatesCard, ConnectUpdatesData } from "@/app/components/ConnectUpdatesCard";
+import { VipDetailsCard, VipCardData } from "@/app/components/VipDetailsCard";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -98,6 +100,41 @@ function getAgeGroupBadgeStyle(ageGroup?: string) {
   }
 }
 
+// Helper to write node image to clipboard with fallback download
+async function copyElementImageToClipboard(element: HTMLElement, fallbackFilename = "card.png"): Promise<boolean> {
+  try {
+    const blob = await toBlob(element, {
+      pixelRatio: 2,
+      cacheBust: true,
+      backgroundColor: "#FFFFFF",
+    });
+    if (!blob) return false;
+
+    if (navigator.clipboard && typeof window.ClipboardItem !== "undefined") {
+      try {
+        const item = new ClipboardItem({ "image/png": blob });
+        await navigator.clipboard.write([item]);
+        return true;
+      } catch (err) {
+        console.warn("Direct clipboard image write failed, triggering download fallback:", err);
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fallbackFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return true;
+  } catch (error) {
+    console.error("Failed to capture node image:", error);
+    return false;
+  }
+}
+
 interface VipsClientProps {
   initialData: any[];
   totalInMonth: number;
@@ -126,9 +163,13 @@ export default function VipsTableClient({
   const [copiedBatch, setCopiedBatch] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Connect Updates Copy States
-  const [copyingUpdates, setCopyingUpdates] = useState(false);
-  const [copiedUpdates, setCopiedUpdates] = useState(false);
+  // Hidden offscreen card refs & active states
+  const summaryCardRef = useRef<HTMLDivElement>(null);
+  const vipCardRef = useRef<HTMLDivElement>(null);
+  const [activeVipCardData, setActiveVipCardData] = useState<VipCardData | null>(null);
+
+  const [copyingSummaryImg, setCopyingSummaryImg] = useState(false);
+  const [copiedSummaryImg, setCopiedSummaryImg] = useState(false);
 
   // Global Notification Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -140,7 +181,6 @@ export default function VipsTableClient({
     }, 3000);
   };
 
-  // Custom Delete Modal State
   const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -169,6 +209,15 @@ export default function VipsTableClient({
   const untextedPhoneNumbers = untextedVips
     .map((v) => formatPhilippineMobile(v.contact)!)
     .filter(Boolean);
+
+  // Calculate live summary figures for the Connect Updates card
+  const summaryData: ConnectUpdatesData = {
+    date: `${MONTHS[safeMonth - 1]} ${safeYear}`,
+    vips: data.length,
+    visitors: data.filter((d) => (d.iam || "").toUpperCase().includes("VISITOR")).length,
+    firstTimers: data.filter((d) => !(d.iam || "").toUpperCase().includes("VISITOR")).length,
+    connected: connectedMembers.length,
+  };
 
   const updateFilters = (
     m: number,
@@ -246,23 +295,67 @@ export default function VipsTableClient({
     showToast(`Exported ${exportRows.length} phone numbers to Excel.`);
   };
 
-  const handleCopyConnectUpdates = () => {
-    if (!canExportPdf) return;
-    setCopyingUpdates(true);
+  // Copy Weekly Summary as Image
+  const handleCopySummaryCardImage = async () => {
+    if (!summaryCardRef.current || copyingSummaryImg) return;
+    setCopyingSummaryImg(true);
 
-    startTransition(async () => {
-      const res = await getConnectSummaryAction();
-      setCopyingUpdates(false);
+    const ok = await copyElementImageToClipboard(
+      summaryCardRef.current,
+      `connect-updates-${safeMonth}-${safeYear}.png`
+    );
 
-      if (res.success && res.text) {
-        await navigator.clipboard.writeText(res.text);
-        setCopiedUpdates(true);
-        showToast("Copied Connect Updates to clipboard!");
-        setTimeout(() => setCopiedUpdates(false), 2500);
-      } else {
-        alert(res.error || "Failed to generate connect updates.");
-      }
+    setCopyingSummaryImg(false);
+    if (ok) {
+      setCopiedSummaryImg(true);
+      showToast("Connect Updates image copied to clipboard! Paste into Messenger.");
+      setTimeout(() => setCopiedSummaryImg(false), 2500);
+    } else {
+      alert("Failed to copy image to clipboard.");
+    }
+  };
+
+  // Copy Single VIP Details as Image
+  const handleCopyVipDetailsImage = async (item: any) => {
+    const gender = getGenderInfo(item.gender);
+    const dateFormatted = new Date(item.createdAt).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
+
+    const cardPayload: VipCardData = {
+      name: item.fullName,
+      gender: gender.label,
+      ageGroup: item.ageGroup || "N/A",
+      service: item.serviceAttended || "N/A",
+      contact: formatPhilippineMobile(item.contact) || item.contact || undefined,
+      messenger: item.messenger || undefined,
+      category: item.iam || "Visitor",
+      approachedBy: item.approachedBy || undefined,
+      invitedBy: item.invitedBy || undefined,
+      connectedWith: item.connectedWith || undefined,
+      discipleshipStarted: Boolean(item.startedOne2One ?? item.startedOne2one),
+      date: dateFormatted
+    };
+
+    setActiveVipCardData(cardPayload);
+    setCopiedId(String(item._id));
+
+    // Wait one microtask for the offscreen node to render with new data
+    setTimeout(async () => {
+      if (!vipCardRef.current) return;
+      const ok = await copyElementImageToClipboard(
+        vipCardRef.current,
+        `vip-${item.fullName.toLowerCase().replace(/\s+/g, "-")}.png`
+      );
+      if (ok) {
+        showToast(`Copied ${item.fullName}'s card image! Paste into Messenger.`);
+      } else {
+        alert("Failed to copy VIP card image.");
+      }
+      setTimeout(() => setCopiedId(null), 2000);
+    }, 60);
   };
 
   const handleUpdateItem = (updatedItem: any) => {
@@ -306,37 +399,6 @@ export default function VipsTableClient({
       }
       router.refresh();
     });
-  };
-
-  const handleCopySingleVipDetails = async (item: any) => {
-    const gender = getGenderInfo(item.gender);
-    const dateFormatted = new Date(item.createdAt).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
-    const contactDisplay = formatPhilippineMobile(item.contact) || item.contact || "None";
-    const messengerDisplay = item.messenger ? item.messenger : "None";
-
-    const details = `📋 VIP / FIRST-TIMER DETAILS:
-• Name: ${item.fullName}
-• Gender: ${gender.label}
-• Age Group: ${item.ageGroup || "N/A"}
-• Service: ${item.serviceAttended || "N/A"}
-• Contact: ${contactDisplay}
-• Messenger: ${messengerDisplay}
-• Category: ${item.iam || "Visitor"}
-• Approached By: ${item.approachedBy || "N/A"}
-• Invited By: ${item.invitedBy || "N/A"}
-• Connected With (1-on-1): ${item.connectedWith || "Not yet"}
-• Discipleship Started: ${Boolean(item.startedOne2One ?? item.startedOne2one) ? "Yes" : "No"}
-• Date: ${dateFormatted}${item.updateReport ? `\n• Notes: ${item.updateReport}` : ""}`;
-
-    await navigator.clipboard.writeText(details);
-    setCopiedId(String(item._id));
-    showToast(`Copied ${item.fullName}'s details to clipboard.`);
-    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handleCopyNumbers = async () => {
@@ -383,6 +445,12 @@ export default function VipsTableClient({
   return (
     <div className="space-y-3.5 relative">
       
+      {/* Off-screen elements for html-to-image conversion */}
+      <div className="fixed -left-[9999px] top-0 pointer-events-none opacity-100" aria-hidden="true">
+        <ConnectUpdatesCard ref={summaryCardRef} data={summaryData} />
+        {activeVipCardData && <VipDetailsCard ref={vipCardRef} data={activeVipCardData} />}
+      </div>
+
       {/* Toast Notification Banner */}
       {toastMessage && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] animate-in fade-in slide-in-from-top-4 duration-200">
@@ -421,26 +489,27 @@ export default function VipsTableClient({
           <div className="flex items-center gap-1 sm:gap-1.5">
             {canExportPdf && (
               <>
+                {/* Copy Summary Card Image Button */}
                 <button
                   type="button"
-                  disabled={copyingUpdates}
-                  onClick={handleCopyConnectUpdates}
+                  disabled={copyingSummaryImg}
+                  onClick={handleCopySummaryCardImage}
                   className={`p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 border active:scale-95 ${
-                    copiedUpdates
+                    copiedSummaryImg
                       ? "bg-emerald-50 border-emerald-300 text-emerald-700"
-                      : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                      : "bg-white hover:bg-orange-50/50 border-slate-200 text-slate-700 hover:border-orange-200"
                   }`}
-                  title="Copy formatted Connect Updates for Sunday"
+                  title="Copy styled Connect Updates Card as an Image"
                 >
-                  {copyingUpdates ? (
+                  {copyingSummaryImg ? (
                     <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
-                  ) : copiedUpdates ? (
+                  ) : copiedSummaryImg ? (
                     <Check className="w-4 h-4 text-emerald-600" />
                   ) : (
-                    <ClipboardCopy className="w-4 h-4 text-indigo-600" />
+                    <ImageIcon className="w-4 h-4 text-[#FF6B00]" />
                   )}
                   <span className="hidden lg:inline">
-                    {copiedUpdates ? "Copied Updates!" : "Connect Updates"}
+                    {copiedSummaryImg ? "Image Copied!" : "Copy Summary Card"}
                   </span>
                 </button>
 
@@ -493,7 +562,7 @@ export default function VipsTableClient({
         </form>
       </div>
 
-      {/* 2. Unified Filter Row (Service & Status Only) */}
+      {/* 2. Unified Filter Row */}
       <div className="flex items-center gap-2 select-none">
         <select
           value={selectedService}
@@ -604,35 +673,33 @@ export default function VipsTableClient({
                 key={item._id}
                 className="bg-white rounded-[20px] border border-slate-200/80 p-3.5 shadow-sm space-y-2.5"
               >
-                {/* Header: Name, Avatar, Date, Copy Details, Edit, Delete Actions */}
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <div>
-                      <h3 className="font-extrabold text-sm text-[#111827] leading-tight">
-                        {item.fullName}
-                      </h3>
-                      <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3" />
-                        {new Date(item.createdAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-[#111827] leading-tight">
+                      {item.fullName}
+                    </h3>
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                      <Clock className="w-3 h-3" />
+                      {new Date(item.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1">
+                    {/* Copy VIP Details as Image */}
                     <button
                       type="button"
-                      onClick={() => handleCopySingleVipDetails(item)}
+                      onClick={() => handleCopyVipDetailsImage(item)}
                       className={`p-1.5 sm:p-2 rounded-xl transition-all ${
                         isCopied
                           ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
                           : "bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00]"
                       }`}
-                      title="Copy VIP Details"
+                      title="Copy VIP Details as an Image Card"
                     >
-                      {isCopied ? <Check className="w-3.5 h-3.5" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
+                      {isCopied ? <Check className="w-3.5 h-3.5" /> : <ImageIcon className="w-3.5 h-3.5 text-[#FF6B00]" />}
                     </button>
 
                     <EditFirstTimerModal 
@@ -656,7 +723,6 @@ export default function VipsTableClient({
                   </div>
                 </div>
 
-                {/* Info Badges */}
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span
                     className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${
@@ -678,7 +744,6 @@ export default function VipsTableClient({
                   </span>
                 </div>
 
-                {/* Ministers Details Box */}
                 <div className="text-xs text-slate-600 bg-slate-50/80 rounded-xl p-2 border border-slate-100 space-y-1">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-[10px] uppercase font-bold text-slate-400">Approached by</span>
@@ -702,7 +767,6 @@ export default function VipsTableClient({
                   )}
                 </div>
 
-                {/* Bottom Interactive Row */}
                 <div className="flex items-center justify-between gap-1.5 pt-0.5">
                   {formattedPhone ? (
                     <a
@@ -891,17 +955,18 @@ export default function VipsTableClient({
 
                       <td className="py-4 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
+                          {/* Copy VIP Details as Image Button */}
                           <button
                             type="button"
-                            onClick={() => handleCopySingleVipDetails(item)}
+                            onClick={() => handleCopyVipDetailsImage(item)}
                             className={`p-2 rounded-xl transition-all ${
                               isCopied
                                 ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
                                 : "bg-slate-100 hover:bg-orange-50 text-slate-500 hover:text-[#FF6B00]"
                             }`}
-                            title="Copy VIP Details"
+                            title="Copy VIP Details as an Image Card"
                           >
-                            {isCopied ? <Check className="w-3.5 h-3.5" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
+                            {isCopied ? <Check className="w-3.5 h-3.5" /> : <ImageIcon className="w-3.5 h-3.5 text-[#FF6B00]" />}
                           </button>
 
                           <EditFirstTimerModal 
@@ -933,7 +998,7 @@ export default function VipsTableClient({
         </div>
       </div>
 
-      {/* 6. Custom Confirmation Delete Modal (Admin Only) */}
+      {/* 6. Custom Confirmation Delete Modal */}
       {itemToDelete && mounted && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-sm bg-white rounded-[28px] sm:rounded-[32px] border border-slate-200 shadow-2xl p-6 space-y-4 animate-in zoom-in-95 text-center">

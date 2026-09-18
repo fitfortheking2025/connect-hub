@@ -17,6 +17,7 @@
     "cloudinary": "^2.11.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.37.0",
