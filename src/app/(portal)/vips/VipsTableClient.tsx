@@ -230,15 +230,27 @@ export default function VipsTableClient({
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   })();
 
-  // Filter records strictly for that single Sunday
+  // Define start of target Sunday (00:00:00)
+  const windowStart = new Date(
+    targetSundayDate.getFullYear(),
+    targetSundayDate.getMonth(),
+    targetSundayDate.getDate(),
+    0, 0, 0, 0
+  );
+
+  // Define end of Monday (23:59:59.999) — 1 day after Sunday
+  const windowEnd = new Date(
+    targetSundayDate.getFullYear(),
+    targetSundayDate.getMonth(),
+    targetSundayDate.getDate() + 1,
+    23, 59, 59, 999
+  );
+
+  // Filter records created within Sunday through Monday
   const targetSundayRecords = data.filter((item) => {
     if (!item.createdAt) return false;
-    const itemDate = new Date(item.createdAt);
-    return (
-      itemDate.getFullYear() === targetSundayDate.getFullYear() &&
-      itemDate.getMonth() === targetSundayDate.getMonth() &&
-      itemDate.getDate() === targetSundayDate.getDate()
-    );
+    const itemTime = new Date(item.createdAt).getTime();
+    return itemTime >= windowStart.getTime() && itemTime <= windowEnd.getTime();
   });
 
   const targetSundayConnected = targetSundayRecords.filter((item) =>
