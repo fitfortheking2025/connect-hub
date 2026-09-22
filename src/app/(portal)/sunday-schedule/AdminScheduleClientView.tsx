@@ -570,7 +570,7 @@ export default function AdminScheduleClientView({
         <div className="flex items-center justify-between bg-slate-50/90 px-2 py-1.5 sm:px-3 sm:py-2 rounded-2xl border border-slate-200/70">
           <button
             onClick={() => handleShiftWeek(-7)}
-            disabled={isPending}
+            disabled={true}
             className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 shadow-sm transition-all active:scale-95 disabled:opacity-50"
             title="Previous Sunday"
           >
@@ -589,7 +589,7 @@ export default function AdminScheduleClientView({
 
           <button
             onClick={() => handleShiftWeek(7)}
-            disabled={isPending}
+            disabled={true}
             className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 shadow-sm transition-all active:scale-95 disabled:opacity-50"
             title="Next Sunday"
           >
