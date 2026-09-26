@@ -178,7 +178,26 @@ export async function plotSundayServiceAction(payload: {
     if (service !== "NOT_ATTENDING") {
       const scheduleConfig = await getCachedSundayScheduleConfig();
       const maxMembersLimit = scheduleConfig.maxMembersPerService || 8;
+      const maxLeadersLimit = scheduleConfig.maxLeadersPerService || 2;
 
+      // 1. Leader capacity check
+      if (isCurrentPersonLeader) {
+        const currentLeadersInService = schedule.attendees.filter(
+          (a: any, idx: number) =>
+            a.service === service &&
+            leaderIdentifiers.includes(a.name.toLowerCase()) &&
+            idx !== existingIndex
+        ).length;
+
+        if (currentLeadersInService >= maxLeadersLimit) {
+          return {
+            success: false,
+            error: `The ${service} service already has ${maxLeadersLimit} Team Leaders assigned.`,
+          };
+        }
+      }
+
+      // 2. Member capacity check
       const currentMembersInService = schedule.attendees.filter(
         (a: any, idx: number) =>
           a.service === service &&
@@ -419,5 +438,67 @@ export async function toggleLockAttendeeAction(payload: {
     };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to update lock status." };
+  }
+}
+
+export async function swapAttendeesAction(payload: {
+  sundayDate: string;
+  sourceName: string;
+  targetName: string;
+}) {
+  try {
+    const session = await auth();
+    const rawRole = String((session?.user as any)?.role || "").trim().toUpperCase();
+    const userRole = rawRole.replace(/[\s-]+/g, "_");
+
+    if (userRole !== "ADMIN" && userRole !== "TEAM_LEADER") {
+      return { success: false, error: "Unauthorized. Team Leader or Admin access required." };
+    }
+
+    await dbConnect();
+    const { sundayDate, sourceName, targetName } = payload;
+    const leaderName = session?.user?.name || "Team Leader";
+
+    const schedule = await SundaySchedule.findOne({ sundayDate });
+    if (!schedule || !Array.isArray(schedule.attendees)) {
+      return { success: false, error: "Schedule not found." };
+    }
+
+    const sLower = sourceName.trim().toLowerCase();
+    const tLower = targetName.trim().toLowerCase();
+
+    const sourceIdx = schedule.attendees.findIndex((a: any) => (a.name || "").toLowerCase() === sLower);
+    const targetIdx = schedule.attendees.findIndex((a: any) => (a.name || "").toLowerCase() === tLower);
+
+    if (sourceIdx === -1 || targetIdx === -1) {
+      return { success: false, error: "One or both attendees could not be found." };
+    }
+
+    // Direct swap of service slots
+    const sourceService = schedule.attendees[sourceIdx].service;
+    const targetService = schedule.attendees[targetIdx].service;
+
+    schedule.attendees[sourceIdx].service = targetService;
+    schedule.attendees[sourceIdx].isLockedByLeader = true;
+    schedule.attendees[sourceIdx].assignedBy = leaderName;
+    schedule.attendees[sourceIdx].updatedAt = new Date();
+
+    schedule.attendees[targetIdx].service = sourceService;
+    schedule.attendees[targetIdx].isLockedByLeader = true;
+    schedule.attendees[targetIdx].assignedBy = leaderName;
+    schedule.attendees[targetIdx].updatedAt = new Date();
+
+    schedule.markModified("attendees");
+    await schedule.save();
+
+    revalidatePath("/schedule");
+    revalidatePath("/sunday-schedule");
+
+    return {
+      success: true,
+      message: `Swapped ${sourceName} (${targetService}) with ${targetName} (${sourceService}).`,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to swap attendees." };
   }
 }

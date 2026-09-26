@@ -96,13 +96,49 @@ export default function ScheduleClientView({
         (m: any) => m.isLeader || m.groupName === "Team Leaders"
       );
 
-  // Helper to ensure nickname resolution for existing attendees
+  // Identify whether the selected member in modal is a Team Leader
+  const selectedMemberObj = teamMembers.find(
+    (m: any) =>
+      m.name?.toLowerCase() === selectedName.toLowerCase() ||
+      m.nickname?.toLowerCase() === selectedName.toLowerCase() ||
+      m.displayName?.toLowerCase() === selectedName.toLowerCase()
+  );
+  const isSelectedPersonLeader = Boolean(
+    selectedMemberObj?.isLeader || selectedMemberObj?.groupName === "Team Leaders"
+  );
+
   const getAttendeeDisplayName = (name: string) => {
     if (!name) return "";
     const matched = teamMembers.find(
       (m: any) => m.name?.toLowerCase() === name.toLowerCase() || m.nickname?.toLowerCase() === name.toLowerCase()
     );
     return matched?.nickname?.trim() || matched?.displayName || name;
+  };
+
+  function getServiceBreakdown(allAttendees: any[], service: "10AM" | "1PM" | "4PM") {
+    const list = (allAttendees || []).filter((a) => a.service === service);
+    const leaders = list.filter((a) => a.isLeader);
+    const members = list.filter((a) => !a.isLeader);
+    return { list, leaders, members };
+  }
+
+  // Check if a service slot is disabled for the selected person in the modal
+  const isServiceOptionDisabled = (svc: "10AM" | "1PM" | "4PM") => {
+    const list = (attendees || []).filter((a) => a.service === svc);
+
+    // If currently selected person already has a slot in this service, don't block them from keeping it
+    const isAlreadyInThisService = list.some(
+      (a) => a.name?.toLowerCase() === selectedName.toLowerCase()
+    );
+    if (isAlreadyInThisService) return false;
+
+    if (!isMemberBookingOpen || isSelectedPersonLeader) {
+      const leadersCount = list.filter((a) => a.isLeader).length;
+      return leadersCount >= maxLeaders;
+    }
+
+    const membersCount = list.filter((a) => !a.isLeader).length;
+    return membersCount >= maxMembers;
   };
 
   const handleOpenModal = (service: ServiceType) => {
@@ -119,6 +155,15 @@ export default function ScheduleClientView({
 
     if (!selectedName) {
       setErrorMsg("Please select your name.");
+      return;
+    }
+
+    if (selectedService !== "NOT_ATTENDING" && isServiceOptionDisabled(selectedService)) {
+      setErrorMsg(
+        isSelectedPersonLeader
+          ? `The ${selectedService} service already has ${maxLeaders} Team Leaders assigned.`
+          : `The ${selectedService} service is full (${maxMembers}/${maxMembers} members).`
+      );
       return;
     }
 
@@ -139,18 +184,25 @@ export default function ScheduleClientView({
     });
   };
 
-  function getServiceBreakdown(allAttendees: any[], service: "10AM" | "1PM" | "4PM") {
-    const list = (allAttendees || []).filter((a) => a.service === service);
-    const leaders = list.filter((a) => a.isLeader);
-    const members = list.filter((a) => !a.isLeader);
-    return { list, leaders, members };
-  }
-
   const listNotAttending = attendees.filter((a) => a.service === "NOT_ATTENDING");
 
   const renderServiceCard = (serviceKey: "10AM" | "1PM" | "4PM") => {
     const config = SERVICE_CONFIG[serviceKey];
     const { leaders, members } = getServiceBreakdown(attendees, serviceKey);
+
+    const isLeadersFull = leaders.length >= maxLeaders;
+    const isMembersFull = members.length >= maxMembers;
+
+    // During leader window, check leader capacity; during general window, check member capacity
+    const isCardDisabled = !isMemberBookingOpen ? isLeadersFull : isMembersFull;
+
+    const buttonLabel = !isMemberBookingOpen
+      ? isLeadersFull
+        ? "Leaders Filled"
+        : `Book ${serviceKey} (Leader)`
+      : isMembersFull
+      ? "Service Full"
+      : `Book ${serviceKey} Slot`;
 
     return (
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col justify-between space-y-4">
@@ -166,9 +218,14 @@ export default function ScheduleClientView({
           </div>
 
           <div className={`bg-gradient-to-r ${config.leaderBg} rounded-2xl p-3 border ${config.leaderBorder}`}>
-            <p className={`text-[10px] font-black uppercase tracking-wider ${config.leaderText} flex items-center gap-1.5 mb-2`}>
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Assigned Team Leaders ({maxLeaders})
+            <p className={`text-[10px] font-black uppercase tracking-wider ${config.leaderText} flex items-center justify-between gap-1.5 mb-2`}>
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Assigned Team Leaders
+              </span>
+              <span className={leaders.length >= maxLeaders ? "font-extrabold text-rose-600" : ""}>
+                ({leaders.length}/{maxLeaders})
+              </span>
             </p>
             {leaders.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -214,15 +271,11 @@ export default function ScheduleClientView({
         </div>
 
         <button
-          disabled={!isMemberBookingOpen || members.length >= maxMembers}
+          disabled={isCardDisabled}
           onClick={() => handleOpenModal(serviceKey)}
           className={`w-full py-3 rounded-2xl font-bold text-xs transition-all disabled:opacity-40 disabled:pointer-events-none ${config.btn}`}
         >
-          {!isMemberBookingOpen
-            ? "Booking Opens Wednesday"
-            : members.length >= maxMembers
-            ? "Service Full"
-            : `Book ${serviceKey} Slot`}
+          {buttonLabel}
         </button>
       </div>
     );
@@ -300,9 +353,15 @@ export default function ScheduleClientView({
             </div>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span className="text-xs font-bold text-slate-700">{maxMembers} Members Max Per Service</span>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+              <span className="w-2 rounded-full h-2 bg-orange-500" />
+              <span className="text-xs font-bold text-slate-700">{maxLeaders} Leaders Max</span>
+            </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+              <span className="w-2 rounded-full h-2 bg-emerald-500" />
+              <span className="text-xs font-bold text-slate-700">{maxMembers} Members Max</span>
+            </div>
           </div>
         </div>
 
@@ -386,7 +445,10 @@ export default function ScheduleClientView({
                         ? "Select your name..."
                         : "Select Team Leader name..."
                     }
-                    onSelect={(val: string) => setSelectedName(val)}
+                    onSelect={(val: string) => {
+                      setSelectedName(val);
+                      setErrorMsg("");
+                    }}
                   />
                 </div>
 
@@ -396,12 +458,21 @@ export default function ScheduleClientView({
                   </label>
                   <select
                     value={selectedService}
-                    onChange={(e) => setSelectedService(e.target.value as ServiceType)}
+                    onChange={(e) => {
+                      setSelectedService(e.target.value as ServiceType);
+                      setErrorMsg("");
+                    }}
                     className="w-full px-3.5 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#FF6B00]"
                   >
-                    <option value="10AM">10:00 AM Service (Blue)</option>
-                    <option value="1PM">1:00 PM Service (Orange)</option>
-                    <option value="4PM">4:00 PM Service (Purple)</option>
+                    <option value="10AM" disabled={isServiceOptionDisabled("10AM")}>
+                      10:00 AM Service (Blue){isServiceOptionDisabled("10AM") ? " — Full" : ""}
+                    </option>
+                    <option value="1PM" disabled={isServiceOptionDisabled("1PM")}>
+                      1:00 PM Service (Orange){isServiceOptionDisabled("1PM") ? " — Full" : ""}
+                    </option>
+                    <option value="4PM" disabled={isServiceOptionDisabled("4PM")}>
+                      4:00 PM Service (Purple){isServiceOptionDisabled("4PM") ? " — Full" : ""}
+                    </option>
                     <option value="NOT_ATTENDING">Cannot Attend (Excused)</option>
                   </select>
                 </div>

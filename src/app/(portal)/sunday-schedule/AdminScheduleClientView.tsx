@@ -24,14 +24,16 @@ import {
   GripVertical,
   AlertTriangle,
   Radio,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ArrowLeftRight
 } from "lucide-react";
 import { formatSundayDateHuman } from "@/lib/sundayDate";
 import { 
   leaderPreAssignAction, 
   removeAttendeeAction, 
   toggleLockAttendeeAction,
-  toggleMemberBookingWindowAction
+  toggleMemberBookingWindowAction,
+  swapAttendeesAction
 } from "@/app/actions/scheduleAction";
 import CustomMemberSelect from "@/app/components/CustomMemberSelect";
 import ScheduleCapacityModal from "@/app/components/ScheduleCapacityModal";
@@ -65,7 +67,7 @@ export default function AdminScheduleClientView({
   maxLeaders?: number;
 }) {
   const router = useRouter();
-  const pathname = usePathname(); // Resolves dynamically to "/sunday-schedule" or "/admin/schedule"
+  const pathname = usePathname();
   const [schedule, setSchedule] = useState(initialSchedule);
   const [isPending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
@@ -108,9 +110,10 @@ export default function AdminScheduleClientView({
   const [attendeeToRemove, setAttendeeToRemove] = useState<{ name: string; displayName: string; service: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Drag and Drop States
+  // Drag, Drop & Swap States
   const [draggedAttendee, setDraggedAttendee] = useState<Attendee | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<ServiceType | null>(null);
+  const [dragOverTargetName, setDragOverTargetName] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -156,9 +159,74 @@ export default function AdminScheduleClientView({
     }
   };
 
-  const handleDrop = (e: React.DragEvent, targetService: ServiceType) => {
+  // Drag Over an Individual Member Slot (Swap Target)
+  const handleSlotDragOver = (e: React.DragEvent, targetName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedAttendee && draggedAttendee.name.toLowerCase() !== targetName.toLowerCase()) {
+      setDragOverTargetName(targetName);
+    }
+  };
+
+  const handleSlotDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverTargetName(null);
+  };
+
+  // Drop on an Individual Slot -> Triggers Direct SWAP
+  const handleSlotDrop = (e: React.DragEvent, targetItem: Attendee) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverColumn(null);
+    setDragOverTargetName(null);
+
+    if (!draggedAttendee) return;
+    if (draggedAttendee.name.toLowerCase() === targetItem.name.toLowerCase()) {
+      setDraggedAttendee(null);
+      return;
+    }
+
+    const source = draggedAttendee;
+    const target = targetItem;
+    setDraggedAttendee(null);
+
+    // Optimistically swap the two in local state
+    setSchedule((prev: any) => {
+      const updated = (prev?.attendees || []).map((att: Attendee) => {
+        if (att.name.toLowerCase() === source.name.toLowerCase()) {
+          return { ...att, service: target.service, isLockedByLeader: true };
+        }
+        if (att.name.toLowerCase() === target.name.toLowerCase()) {
+          return { ...att, service: source.service, isLockedByLeader: true };
+        }
+        return att;
+      });
+      return { ...prev, attendees: updated };
+    });
+
+    startTransition(async () => {
+      const res = await swapAttendeesAction({
+        sundayDate,
+        sourceName: source.name,
+        targetName: target.name,
+      });
+
+      if (res.success) {
+        showToast(`Swapped ${getDisplayName(source.name)} ⇄ ${getDisplayName(target.name)}!`);
+        router.refresh();
+      } else {
+        alert(res.error || "Failed to swap slots.");
+        router.refresh();
+      }
+    });
+  };
+
+  // Drop on Column Empty Space -> Regular Move
+  const handleColumnDrop = (e: React.DragEvent, targetService: ServiceType) => {
     e.preventDefault();
     setDragOverColumn(null);
+    setDragOverTargetName(null);
 
     if (!draggedAttendee) return;
     if (draggedAttendee.service === targetService) {
@@ -388,7 +456,7 @@ export default function AdminScheduleClientView({
       <div 
         onDragOver={(e) => handleDragOver(e, serviceKey)}
         onDragLeave={(e) => handleDragLeave(e, serviceKey)}
-        onDrop={(e) => handleDrop(e, serviceKey)}
+        onDrop={(e) => handleColumnDrop(e, serviceKey)}
         className={`bg-white rounded-[28px] border p-5 shadow-sm space-y-3 flex flex-col justify-between transition-all duration-200 ${
           dragOverColumn === serviceKey
             ? `${colorClass.border} ring-2 ${colorClass.ring}${colorClass.bg} scale-[1.01]`
@@ -407,7 +475,7 @@ export default function AdminScheduleClientView({
             </span>
           </div>
 
-          {/* Leaders Header Chip Box */}
+          {/* Leaders Header Chip Box (Supports Drag & Drop Swapping) */}
           <div className="bg-orange-50/70 rounded-2xl p-2.5 border border-orange-200/60">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-orange-800 flex items-center gap-1">
@@ -415,43 +483,73 @@ export default function AdminScheduleClientView({
               </span>
             </div>
             {leaders.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {leaders.map((l) => (
-                  <span key={l.name} className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg text-xs font-bold text-slate-800 border border-orange-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                    {getDisplayName(l.name)}
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-1.5">
+                {leaders.map((l) => {
+                  const isHoveredTarget = dragOverTargetName?.toLowerCase() === l.name.toLowerCase();
+                  return (
+                    <span 
+                      key={l.name}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, l)}
+                      onDragOver={(e) => handleSlotDragOver(e, l.name)}
+                      onDragLeave={handleSlotDragLeave}
+                      onDrop={(e) => handleSlotDrop(e, l)}
+                      className={`inline-flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 border transition-all cursor-grab active:cursor-grabbing ${
+                        isHoveredTarget
+                          ? "ring-2 ring-[#FF6B00] bg-orange-100 border-[#FF6B00] scale-105"
+                          : "border-orange-200"
+                      }`}
+                      title="Drag to swap or move leader"
+                    >
+                      {isHoveredTarget ? (
+                        <ArrowLeftRight className="w-3 h-3 text-[#FF6B00] animate-pulse" />
+                      ) : (
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                      )}
+                      {getDisplayName(l.name)}
+                    </span>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-[11px] text-orange-950/60 italic">No leader assigned yet</p>
             )}
           </div>
 
-          {/* Dynamic Slots */}
+          {/* Dynamic Member Slots */}
           <div className="space-y-1.5 min-h-[300px]">
             {Array.from({ length: maxMembers }).map((_, i) => {
               const item = members[i];
               const displayName = item ? getDisplayName(item.name) : "";
+              const isTargetHovered = item && dragOverTargetName?.toLowerCase() === item.name.toLowerCase();
 
               return (
                 <div
                   key={i}
                   draggable={!!item}
                   onDragStart={(e) => item && handleDragStart(e, item)}
+                  onDragOver={(e) => item && handleSlotDragOver(e, item.name)}
+                  onDragLeave={handleSlotDragLeave}
+                  onDrop={(e) => item ? handleSlotDrop(e, item) : handleColumnDrop(e, serviceKey)}
                   className={`p-2 rounded-xl text-xs flex items-center justify-between border transition-all ${
-                    item
+                    isTargetHovered
+                      ? "ring-2 ring-[#FF6B00] bg-orange-50 border-[#FF6B00] scale-[1.02] shadow-md"
+                      : item
                       ? "bg-slate-50 hover:bg-slate-100 border-slate-200/90 font-bold text-slate-800 cursor-grab active:cursor-grabbing hover:shadow-sm"
                       : "bg-slate-50/40 border-dashed border-slate-200 text-slate-300 font-medium"
                   }`}
                 >
                   <div className="flex items-center gap-2 truncate">
-                    {item ? (
+                    {isTargetHovered ? (
+                      <ArrowLeftRight className="w-3.5 h-3.5 text-[#FF6B00] animate-pulse shrink-0" />
+                    ) : item ? (
                       <GripVertical className="w-3.5 h-3.5 text-slate-400 shrink-0 cursor-grab" />
                     ) : (
                       <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
                     )}
-                    <span className="truncate">{item ? displayName : "Open Slot"}</span>
+                    <span className="truncate">
+                      {isTargetHovered ? `Swap with ${displayName}` : item ? displayName : "Open Slot"}
+                    </span>
                   </div>
 
                   {item && (
@@ -500,7 +598,7 @@ export default function AdminScheduleClientView({
   };
 
   return (
-    <div className="space-y-5 relative select-none">
+    <div className="space-y-4 sm:space-y-5 relative select-none pb-24 lg:pb-8">
       {toastMessage && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] animate-in fade-in slide-in-from-top-4">
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 text-white shadow-2xl text-xs font-bold border border-slate-700">
@@ -510,123 +608,131 @@ export default function AdminScheduleClientView({
         </div>
       )}
 
-      <div className="bg-white rounded-[24px] sm:rounded-[32px] border border-slate-200/80 p-4 sm:p-6 shadow-sm space-y-3.5 sm:space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2 sm:p-2.5 rounded-2xl bg-orange-50 text-[#FF6B00] border border-orange-200/60 shrink-0 mt-0.5">
+      {/* Mobile-Optimized Native Control Header */}
+      <div className="bg-white rounded-3xl sm:rounded-[28px] border border-slate-200/80 p-4 sm:p-6 shadow-sm space-y-3.5">
+        
+        {/* Row 1: Compact Title + Primary CTAs */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-orange-50 text-[#FF6B00] border border-orange-200/60 shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <div>
-              <h1 className="text-lg sm:text-2xl font-black text-[#111827] tracking-tight leading-tight">
-                Sunday Attendance Control
-              </h1>
-              <p className="text-[11px] sm:text-xs text-slate-400 font-medium mt-0.5 leading-snug">
-                💡 Drag & drop members across services or toggle locks to prevent self-editing.
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-2xl font-black text-[#111827] tracking-tight truncate">
+                  Attendance Control
+                </h1>
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600">
+                  Admin
+                </span>
+              </div>
+              <p className="hidden sm:block text-xs text-slate-400 font-medium mt-0.5">
+                Drag and drop members across services, or drop onto another member to swap slots.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          {/* Action Buttons: 2 Compact Touch Targets */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={handleToggleBookingWindow}
               disabled={isTogglingWindow}
-              className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+              className={`p-2 sm:px-3 sm:py-2 rounded-xl text-xs font-extrabold border transition-all active:scale-95 flex items-center gap-1.5 ${
                 schedule?.isRegistrationOpen
-                  ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 shadow-xs"
+                  : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
               }`}
+              title={schedule?.isRegistrationOpen ? "Registration Open (Click to Close)" : "Registration Closed (Click to Open)"}
             >
               <Radio className={`w-3.5 h-3.5 ${schedule?.isRegistrationOpen ? "text-emerald-600 animate-pulse" : "text-slate-400"}`} />
-              <span>{schedule?.isRegistrationOpen ? "Member Registration: OPEN" : "Open to Members Early"}</span>
+              <span className="hidden sm:inline">{schedule?.isRegistrationOpen ? "Booking: OPEN" : "Booking: CLOSED"}</span>
             </button>
-
-            <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2">
-              <a
-                href="/schedule"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all"
-              >
-                <ExternalLink className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span>Open Board</span>
-              </a>
-
-              <button
-                onClick={handleCopyGcFormat}
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all"
-              >
-                {copiedGc ? (
-                  <CheckCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                )}
-                <span>{copiedGc ? "Copied" : "Copy GC"}</span>
-              </button>
-
-              {userRole === "ADMIN" && (
-                <button
-                  type="button"
-                  onClick={() => setIsCapacityModalOpen(true)}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200"
-                  title="Adjust Service Slot Capacities"
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>Capacities ({maxMembers})</span>
-                </button>
-              )}
-
-              {userRole === "ADMIN" && (
-                <Link
-                  href="/sunday-schedule/matrix"
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] text-xs font-black transition-all border border-orange-200/60 shadow-xs"
-                  title="View Yearly Attendance Matrix & Consistency Trends"
-                >
-                  <Calendar className="w-3.5 h-3.5 text-[#FF6B00] shrink-0" />
-                  <span>Yearly Matrix</span>
-                </Link>
-              )}
-            </div>
 
             <button
               onClick={() => handleOpenAssignModal("10AM")}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-extrabold shadow-md shadow-orange-500/20 transition-all active:scale-95 shrink-0"
+              className="inline-flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black shadow-md shadow-orange-500/20 transition-all active:scale-95"
             >
-              <UserPlus className="w-4 h-4" />
-              <span>Pre-Assign Member</span>
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Assign</span>
             </button>
           </div>
         </div>
 
-        {/* Date Navigator */}
-        <div className="flex items-center justify-between bg-slate-50/90 px-2 py-1.5 sm:px-3 sm:py-2 rounded-2xl border border-slate-200/70">
+        {/* Row 2: Date Selector (Native Mobile Bar) */}
+        <div className="flex items-center justify-between bg-slate-50/90 p-1.5 rounded-2xl border border-slate-200/80">
           <button
             onClick={() => handleShiftWeek(-7)}
-            disabled={false}
-            className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+            className="p-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200/80 shadow-xs transition-colors active:scale-95 shrink-0"
             title="Previous Sunday"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-2 truncate px-2">
-            <Calendar className="w-4 h-4 text-[#FF6B00] shrink-0" />
-            <span className="text-xs sm:text-sm font-extrabold text-[#111827] truncate">
+          <div className="flex items-center gap-1.5 sm:gap-2 truncate px-1">
+            <Calendar className="w-3.5 h-3.5 text-[#FF6B00] shrink-0" />
+            <span className="text-xs sm:text-sm font-black text-[#111827] truncate">
               {formatSundayDateHuman(sundayDate)}
             </span>
-            <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-[#FF6B00] shrink-0">
+            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-orange-100 text-[#FF6B00] shrink-0">
               {attendees.length} Plotted
             </span>
           </div>
 
           <button
             onClick={() => handleShiftWeek(7)}
-            disabled={false}
-            className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+            className="p-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-slate-200/80 shadow-xs transition-colors active:scale-95 shrink-0"
             title="Next Sunday"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Row 3: Balanced 4-Grid Toolbar (No Horizontal Cutoffs) */}
+        <div className="grid grid-cols-4 gap-1.5 pt-1 border-t border-slate-100">
+          {userRole === "ADMIN" && (
+            <Link
+              href="/sunday-schedule/matrix"
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 py-2 px-1 rounded-xl bg-orange-50/70 hover:bg-orange-100 text-[#FF6B00] text-[10px] sm:text-xs font-black transition-all border border-orange-200/60 shadow-xs"
+            >
+              <Calendar className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Matrix</span>
+            </Link>
+          )}
+
+          {userRole === "ADMIN" && (
+            <button
+              type="button"
+              onClick={() => setIsCapacityModalOpen(true)}
+              className="flex flex-col sm:flex-row items-center justify-center gap-1 py-2 px-1 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-[10px] sm:text-xs font-bold transition-all border border-slate-200 shadow-xs"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span className="truncate">Limits ({maxMembers})</span>
+            </button>
+          )}
+
+          <button
+            onClick={handleCopyGcFormat}
+            className="flex flex-col sm:flex-row items-center justify-center gap-1 py-2 px-1 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-[10px] sm:text-xs font-bold transition-all border border-slate-200 shadow-xs"
+          >
+            {copiedGc ? (
+              <CheckCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            )}
+            <span className="truncate">{copiedGc ? "Copied" : "Copy GC"}</span>
+          </button>
+
+          <a
+            href="/schedule"
+            target="_blank"
+            rel="noreferrer"
+            className="flex flex-col sm:flex-row items-center justify-center gap-1 py-2 px-1 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-[10px] sm:text-xs font-bold transition-all border border-slate-200 shadow-xs"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <span className="truncate">Board</span>
+          </a>
+        </div>
+
       </div>
 
       {/* 3 Interactive Service Columns */}
@@ -660,7 +766,7 @@ export default function AdminScheduleClientView({
       <div 
         onDragOver={(e) => handleDragOver(e, "NOT_ATTENDING")}
         onDragLeave={(e) => handleDragLeave(e, "NOT_ATTENDING")}
-        onDrop={(e) => handleDrop(e, "NOT_ATTENDING")}
+        onDrop={(e) => handleColumnDrop(e, "NOT_ATTENDING")}
         className={`bg-white rounded-[28px] border p-5 shadow-sm space-y-3 transition-all duration-200 ${
           dragOverColumn === "NOT_ATTENDING"
             ? "border-slate-500 ring-2 ring-slate-400/20 bg-slate-100/60 scale-[1.005]"
@@ -669,7 +775,7 @@ export default function AdminScheduleClientView({
       >
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="font-extrabold text-xs text-slate-500 uppercase tracking-wider">
-            Not Attending / Excused ({listNotAttending.length}) • <span className="text-slate-400 font-normal">Drop members here to mark absent</span>
+            Not Attending / Excused ({listNotAttending.length}) • <span className="text-slate-400 font-normal">Drop members here or drag to swap</span>
           </div>
           <button
             onClick={() => handleOpenAssignModal("NOT_ATTENDING")}
@@ -687,15 +793,28 @@ export default function AdminScheduleClientView({
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {listNotAttending.map((a, i) => {
               const displayName = getDisplayName(a.name);
+              const isTargetHovered = dragOverTargetName?.toLowerCase() === a.name.toLowerCase();
+
               return (
                 <div 
                   key={i} 
                   draggable
                   onDragStart={(e) => handleDragStart(e, a)}
-                  className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-between text-xs cursor-grab active:cursor-grabbing transition-all hover:shadow-sm"
+                  onDragOver={(e) => handleSlotDragOver(e, a.name)}
+                  onDragLeave={handleSlotDragLeave}
+                  onDrop={(e) => handleSlotDrop(e, a)}
+                  className={`p-2.5 rounded-xl border flex items-center justify-between text-xs cursor-grab active:cursor-grabbing transition-all ${
+                    isTargetHovered
+                      ? "ring-2 ring-[#FF6B00] bg-orange-50 border-[#FF6B00] scale-[1.02] shadow-md"
+                      : "bg-slate-50 hover:bg-slate-100 border-slate-200"
+                  }`}
                 >
                   <div className="flex items-center gap-2 truncate">
-                    <GripVertical className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    {isTargetHovered ? (
+                      <ArrowLeftRight className="w-3.5 h-3.5 text-[#FF6B00] animate-pulse shrink-0" />
+                    ) : (
+                      <GripVertical className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    )}
                     <div className="truncate">
                       <div className="font-bold text-slate-800 truncate">{displayName}</div>
                       <div className="text-[10px] text-slate-400 italic truncate">{a.reason || "Excused"}</div>
