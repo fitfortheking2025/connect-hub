@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSundayScheduleAction } from "@/app/actions/scheduleAction";
 import { getNextOrCurrentSunday } from "@/lib/sundayDate";
+import { getCachedSundayScheduleConfig } from "@/lib/settings/scheduleSettings";
 import AdminScheduleClientView from "./AdminScheduleClientView";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ export default async function AdminSchedulePage({
   const resolvedParams = await searchParams;
   const targetDate = resolvedParams?.date || getNextOrCurrentSunday();
   const res = await getSundayScheduleAction(targetDate);
+  const scheduleConfig = await getCachedSundayScheduleConfig();
 
   const initialSchedule = res.success && res.schedule ? res.schedule : { attendees: [] };
   const sundayDate = res.success && res.sundayDate ? res.sundayDate : targetDate;
@@ -35,6 +37,8 @@ export default async function AdminSchedulePage({
         sundayDate={sundayDate}
         teamMembers={teamMembers}
         userRole={userRole}
+        maxMembers={scheduleConfig.maxMembersPerService}
+        maxLeaders={scheduleConfig.maxLeadersPerService}
       />
     </div>
   );

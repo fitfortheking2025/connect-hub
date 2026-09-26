@@ -23,7 +23,8 @@ import {
   X,
   GripVertical,
   AlertTriangle,
-  Radio
+  Radio,
+  SlidersHorizontal
 } from "lucide-react";
 import { formatSundayDateHuman } from "@/lib/sundayDate";
 import { 
@@ -33,6 +34,7 @@ import {
   toggleMemberBookingWindowAction
 } from "@/app/actions/scheduleAction";
 import CustomMemberSelect from "@/app/components/CustomMemberSelect";
+import ScheduleCapacityModal from "@/app/components/ScheduleCapacityModal";
 
 interface Attendee {
   memberId?: string;
@@ -46,24 +48,29 @@ interface Attendee {
 
 type ServiceType = "10AM" | "1PM" | "4PM" | "NOT_ATTENDING";
 
-const MAX_MEMBERS = 8;
-
 export default function AdminScheduleClientView({
   initialSchedule,
   sundayDate,
   teamMembers,
   userRole,
+  maxMembers = 8,
+  maxLeaders = 2,
 }: {
   initialSchedule: any;
   sundayDate: string;
   teamMembers: Array<{ _id: string; name: string; nickname?: string; displayName?: string; role?: string }>;
   userRole: string;
+  maxMembers?: number;
+  maxLeaders?: number;
 }) {
   const router = useRouter();
   const [schedule, setSchedule] = useState(initialSchedule);
   const [isPending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
   const [isTogglingWindow, setIsTogglingWindow] = useState(false);
+
+  // Capacity Settings Modal State
+  const [isCapacityModalOpen, setIsCapacityModalOpen] = useState(false);
 
   useEffect(() => {
     setSchedule(initialSchedule);
@@ -160,8 +167,8 @@ export default function AdminScheduleClientView({
     const targetList = getServiceList(targetService);
     const nonLeaderCount = targetList.filter((a) => !a.isLeader).length;
 
-    if (targetService !== "NOT_ATTENDING" && !draggedAttendee.isLeader && nonLeaderCount >= MAX_MEMBERS) {
-      showToast(`Cannot move: ${targetService} member slots are full (8/8)!`);
+    if (targetService !== "NOT_ATTENDING" && !draggedAttendee.isLeader && nonLeaderCount >= maxMembers) {
+      showToast(`Cannot move: ${targetService} member slots are full (${maxMembers}/${maxMembers})!`);
       setDraggedAttendee(null);
       return;
     }
@@ -330,13 +337,13 @@ export default function AdminScheduleClientView({
 
   const handleCopyGcFormat = async () => {
     const formattedDate = formatSundayDateHuman(sundayDate);
-    let text = `SUNDAY ATTENDANCE:\n${formattedDate}\nKindly note that we will only be allowing "8 members" per service to ensure balance and order in the team. We appreciate your understanding and cooperation. Thank you and God bless\n\n`;
+    let text = `SUNDAY ATTENDANCE:\n${formattedDate}\nKindly note that we will only be allowing "${maxMembers} members" per service to ensure balance and order in the team. We appreciate your understanding and cooperation. Thank you and God bless\n\n`;
 
     const formatList = (title: string, list: Attendee[]) => {
       const leaders = list.filter((a) => a.isLeader);
       const members = list.filter((a) => !a.isLeader);
 
-      let str = `${title} (${members.length}/8):\n`;
+      let str = `${title} (${members.length}/${maxMembers}):\n`;
       if (leaders.length > 0) {
         str += `Leaders: ${leaders.map((l) => getDisplayName(l.name)).join(", ")}\n`;
       }
@@ -383,7 +390,7 @@ export default function AdminScheduleClientView({
         onDrop={(e) => handleDrop(e, serviceKey)}
         className={`bg-white rounded-[28px] border p-5 shadow-sm space-y-3 flex flex-col justify-between transition-all duration-200 ${
           dragOverColumn === serviceKey
-            ? `${colorClass.border} ring-2 ${colorClass.ring} ${colorClass.bg} scale-[1.01]`
+            ? `${colorClass.border} ring-2 ${colorClass.ring}${colorClass.bg} scale-[1.01]`
             : "border-slate-200/80"
         }`}
       >
@@ -393,9 +400,9 @@ export default function AdminScheduleClientView({
               <Clock className={`w-4 h-4 ${colorClass.text}`} /> {title}
             </div>
             <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full border ${
-              members.length >= MAX_MEMBERS ? "bg-rose-50 text-rose-600 border-rose-200" : `${colorClass.bg} ${colorClass.text} border-slate-200`
+              members.length >= maxMembers ? "bg-rose-50 text-rose-600 border-rose-200" : `${colorClass.bg}${colorClass.text} border-slate-200`
             }`}>
-              {members.length} / 8 Members
+              {members.length} / {maxMembers} Members
             </span>
           </div>
 
@@ -403,7 +410,7 @@ export default function AdminScheduleClientView({
           <div className="bg-orange-50/70 rounded-2xl p-2.5 border border-orange-200/60">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-orange-800 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-orange-600" /> Leaders ({leaders.length}/2)
+                <ShieldCheck className="w-3 h-3 text-orange-600" /> Leaders ({leaders.length}/{maxLeaders})
               </span>
             </div>
             {leaders.length > 0 ? (
@@ -420,9 +427,9 @@ export default function AdminScheduleClientView({
             )}
           </div>
 
-          {/* 8 Slots */}
+          {/* Dynamic Slots */}
           <div className="space-y-1.5 min-h-[300px]">
-            {Array.from({ length: MAX_MEMBERS }).map((_, i) => {
+            {Array.from({ length: maxMembers }).map((_, i) => {
               const item = members[i];
               const displayName = item ? getDisplayName(item.name) : "";
 
@@ -482,7 +489,7 @@ export default function AdminScheduleClientView({
 
         <button
           onClick={() => handleOpenAssignModal(serviceKey)}
-          disabled={members.length >= MAX_MEMBERS}
+          disabled={members.length >= maxMembers}
           className={`w-full py-2 rounded-xl font-bold text-xs transition-colors disabled:opacity-40 ${colorClass.button}`}
         >
           + Assign to {serviceKey}
@@ -532,7 +539,7 @@ export default function AdminScheduleClientView({
               <span>{schedule?.isRegistrationOpen ? "Member Registration: OPEN" : "Open to Members Early"}</span>
             </button>
 
-            <div className="grid grid-cols-2 sm:flex items-center gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2">
               <a
                 href="/schedule"
                 target="_blank"
@@ -554,6 +561,18 @@ export default function AdminScheduleClientView({
                 )}
                 <span>{copiedGc ? "Copied" : "Copy GC"}</span>
               </button>
+
+              {userRole === "ADMIN" && (
+                <button
+                  type="button"
+                  onClick={() => setIsCapacityModalOpen(true)}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200"
+                  title="Adjust Service Slot Capacities"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>Capacities ({maxMembers})</span>
+                </button>
+              )}
             </div>
 
             <button
@@ -720,9 +739,9 @@ export default function AdminScheduleClientView({
                   onChange={(e) => setSelectedService(e.target.value as ServiceType)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none focus:border-[#FF6B00]"
                 >
-                  <option value="10AM">10:00 AM Service ({list10AM.filter(a => !a.isLeader).length}/8)</option>
-                  <option value="1PM">1:00 PM Service ({list1PM.filter(a => !a.isLeader).length}/8)</option>
-                  <option value="4PM">4:00 PM Service ({list4PM.filter(a => !a.isLeader).length}/8)</option>
+                  <option value="10AM">10:00 AM Service ({list10AM.filter(a => !a.isLeader).length}/{maxMembers})</option>
+                  <option value="1PM">1:00 PM Service ({list1PM.filter(a => !a.isLeader).length}/{maxMembers})</option>
+                  <option value="4PM">4:00 PM Service ({list4PM.filter(a => !a.isLeader).length}/{maxMembers})</option>
                   <option value="NOT_ATTENDING">Not Attending / Excused</option>
                 </select>
               </div>
@@ -810,6 +829,14 @@ export default function AdminScheduleClientView({
         </div>,
         document.body
       )}
+
+      {/* Schedule Capacity Settings Modal */}
+      <ScheduleCapacityModal
+        isOpen={isCapacityModalOpen}
+        onClose={() => setIsCapacityModalOpen(false)}
+        currentMaxMembers={maxMembers}
+        currentMaxLeaders={maxLeaders}
+      />
     </div>
   );
 }

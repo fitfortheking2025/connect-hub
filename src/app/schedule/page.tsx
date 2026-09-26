@@ -1,6 +1,7 @@
 // src/app/schedule/page.tsx
 import { getSundayScheduleAction } from "@/app/actions/scheduleAction";
 import { getNextOrCurrentSunday } from "@/lib/sundayDate";
+import { getCachedSundayScheduleConfig } from "@/lib/settings/scheduleSettings";
 import ScheduleClientView from "./ScheduleClientView";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,11 @@ export default async function SchedulePage({
 }) {
   const resolvedParams = await searchParams;
   const targetDate = resolvedParams?.date || getNextOrCurrentSunday();
-  const res = await getSundayScheduleAction(targetDate);
+  
+  const [res, scheduleConfig] = await Promise.all([
+    getSundayScheduleAction(targetDate),
+    getCachedSundayScheduleConfig(),
+  ]);
 
   const initialSchedule = res.success && res.schedule 
     ? res.schedule 
@@ -26,6 +31,8 @@ export default async function SchedulePage({
         initialSchedule={initialSchedule}
         teamMembers={teamMembers}
         isMemberBookingOpen={isMemberBookingOpen}
+        maxMembers={scheduleConfig.maxMembersPerService}
+        maxLeaders={scheduleConfig.maxLeadersPerService}
       />
     </div>
   );

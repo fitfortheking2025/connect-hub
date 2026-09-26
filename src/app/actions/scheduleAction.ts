@@ -7,6 +7,7 @@ import { SundaySchedule } from "@/models/SundaySchedule";
 import TeamMember from "@/models/TeamMember";
 import { auth } from "@/lib/auth";
 import { getNextOrCurrentSunday } from "@/lib/sundayDate";
+import { getCachedSundayScheduleConfig } from "@/lib/settings/scheduleSettings";
 
 const MAX_MEMBERS_PER_SERVICE = 8;
 
@@ -175,6 +176,9 @@ export async function plotSundayServiceAction(payload: {
     }
 
     if (service !== "NOT_ATTENDING") {
+      const scheduleConfig = await getCachedSundayScheduleConfig();
+      const maxMembersLimit = scheduleConfig.maxMembersPerService || 8;
+
       const currentMembersInService = schedule.attendees.filter(
         (a: any, idx: number) =>
           a.service === service &&
@@ -182,10 +186,10 @@ export async function plotSundayServiceAction(payload: {
           idx !== existingIndex
       ).length;
 
-      if (!isCurrentPersonLeader && currentMembersInService >= MAX_MEMBERS_PER_SERVICE) {
+      if (!isCurrentPersonLeader && currentMembersInService >= maxMembersLimit) {
         return {
           success: false,
-          error: `The ${service} service has reached its ${MAX_MEMBERS_PER_SERVICE}-member limit.`,
+          error: `The ${service} service has reached its ${maxMembersLimit}-member limit.`,
         };
       }
     }

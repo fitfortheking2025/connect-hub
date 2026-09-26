@@ -70,11 +70,15 @@ const SERVICE_CONFIG: Record<
 export default function ScheduleClientView({ 
   initialSchedule, 
   teamMembers = [], 
-  isMemberBookingOpen = false 
+  isMemberBookingOpen = false,
+  maxMembers = 8,
+  maxLeaders = 2,
 }: { 
   initialSchedule: any; 
   teamMembers?: any[];
   isMemberBookingOpen?: boolean;
+  maxMembers?: number;
+  maxLeaders?: number;
 }) {
   const [schedule, setSchedule] = useState(initialSchedule || {});
   const attendees: any[] = schedule?.attendees || [];
@@ -157,14 +161,14 @@ export default function ScheduleClientView({
               <h3 className="font-black text-slate-900 text-base">{config.title}</h3>
             </div>
             <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${config.badgeBg} ${config.badgeText}`}>
-              {members.length} / 8 Members
+              {members.length} / {maxMembers} Members
             </span>
           </div>
 
           <div className={`bg-gradient-to-r ${config.leaderBg} rounded-2xl p-3 border ${config.leaderBorder}`}>
             <p className={`text-[10px] font-black uppercase tracking-wider ${config.leaderText} flex items-center gap-1.5 mb-2`}>
               <ShieldCheck className="w-3.5 h-3.5" />
-              Assigned Team Leaders (2)
+              Assigned Team Leaders ({maxLeaders})
             </p>
             {leaders.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -186,7 +190,7 @@ export default function ScheduleClientView({
           </div>
 
           <div className="space-y-1.5">
-            {Array.from({ length: 8 }).map((_, index) => {
+            {Array.from({ length: maxMembers }).map((_, index) => {
               const attendee = members[index];
               const displayName = attendee ? getAttendeeDisplayName(attendee.name) : "";
 
@@ -210,13 +214,13 @@ export default function ScheduleClientView({
         </div>
 
         <button
-          disabled={!isMemberBookingOpen || members.length >= 8}
+          disabled={!isMemberBookingOpen || members.length >= maxMembers}
           onClick={() => handleOpenModal(serviceKey)}
           className={`w-full py-3 rounded-2xl font-bold text-xs transition-all disabled:opacity-40 disabled:pointer-events-none ${config.btn}`}
         >
           {!isMemberBookingOpen
             ? "Booking Opens Wednesday"
-            : members.length >= 8
+            : members.length >= maxMembers
             ? "Service Full"
             : `Book ${serviceKey} Slot`}
         </button>
@@ -298,7 +302,7 @@ export default function ScheduleClientView({
 
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            <span className="text-xs font-bold text-slate-700">8 Members Max Per Service</span>
+            <span className="text-xs font-bold text-slate-700">{maxMembers} Members Max Per Service</span>
           </div>
         </div>
 
