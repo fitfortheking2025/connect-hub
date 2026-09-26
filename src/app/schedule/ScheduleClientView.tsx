@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Calendar, Clock, ShieldCheck, UserCheck, LogIn, Info, Loader2 } from "lucide-react";
+import { Calendar, Clock, ShieldCheck, UserCheck, LogIn, Info, Loader2, UserX } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { plotSundayServiceAction } from "@/app/actions/scheduleAction";
@@ -141,6 +141,8 @@ export default function ScheduleClientView({
     const members = list.filter((a) => !a.isLeader);
     return { list, leaders, members };
   }
+
+  const listNotAttending = attendees.filter((a) => a.service === "NOT_ATTENDING");
 
   const renderServiceCard = (serviceKey: "10AM" | "1PM" | "4PM") => {
     const config = SERVICE_CONFIG[serviceKey];
@@ -304,6 +306,50 @@ export default function ScheduleClientView({
           {renderServiceCard("10AM")}
           {renderServiceCard("1PM")}
           {renderServiceCard("4PM")}
+        </div>
+
+        {/* NOT ATTENDING / EXCUSED SECTION */}
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <UserX className="w-4 h-4 text-slate-400" />
+              <h3 className="font-extrabold text-xs text-slate-500 uppercase tracking-wider">
+                Not Attending / Excused ({listNotAttending.length})
+              </h3>
+            </div>
+            <button
+              onClick={() => handleOpenModal("NOT_ATTENDING")}
+              className="inline-flex items-center gap-1.5 self-start sm:self-auto px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all active:scale-95"
+            >
+              <span>+ Mark Not Attending</span>
+            </button>
+          </div>
+
+          {listNotAttending.length === 0 ? (
+            <p className="text-xs text-slate-400 py-6 text-center italic border border-dashed border-slate-200 rounded-2xl">
+              All team members are currently scheduled to serve or have not marked absent yet.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+              {listNotAttending.map((a: any, i: number) => {
+                const displayName = getAttendeeDisplayName(a.name);
+                return (
+                  <div 
+                    key={i} 
+                    className="p-3 rounded-2xl bg-slate-50/80 border border-slate-100 text-xs flex items-center justify-between gap-2"
+                  >
+                    <div className="truncate">
+                      <div className="font-bold text-slate-800 truncate">{displayName}</div>
+                      <div className="text-[10px] text-slate-400 italic truncate">{a.reason || "Excused"}</div>
+                    </div>
+                    <span className="shrink-0 text-[10px] font-bold text-slate-400 bg-white border border-slate-200 px-2 py-0.5 rounded-lg">
+                      Excused
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </main>
 
