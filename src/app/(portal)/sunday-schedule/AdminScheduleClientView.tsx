@@ -3,7 +3,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { 
   Calendar, 
   Clock, 
@@ -65,6 +65,7 @@ export default function AdminScheduleClientView({
   maxLeaders?: number;
 }) {
   const router = useRouter();
+  const pathname = usePathname(); // Resolves dynamically to "/sunday-schedule" or "/admin/schedule"
   const [schedule, setSchedule] = useState(initialSchedule);
   const [isPending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
@@ -208,16 +209,15 @@ export default function AdminScheduleClientView({
 
   const handleShiftWeek = (days: number) => {
     const [y, m, d] = sundayDate.split("-").map(Number);
-    const date = new Date(y, m - 1, d);
-    date.setDate(date.getDate() + days);
+    const date = new Date(Date.UTC(y, m - 1, d + days));
 
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
     const nextSunday = `${year}-${month}-${day}`;
 
     startTransition(() => {
-      router.push(`/admin/schedule?date=${nextSunday}`);
+      router.push(`${pathname}?date=${nextSunday}`);
     });
   };
 
@@ -601,7 +601,7 @@ export default function AdminScheduleClientView({
         <div className="flex items-center justify-between bg-slate-50/90 px-2 py-1.5 sm:px-3 sm:py-2 rounded-2xl border border-slate-200/70">
           <button
             onClick={() => handleShiftWeek(-7)}
-            disabled={true}
+            disabled={false}
             className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 shadow-sm transition-all active:scale-95 disabled:opacity-50"
             title="Previous Sunday"
           >
@@ -620,7 +620,7 @@ export default function AdminScheduleClientView({
 
           <button
             onClick={() => handleShiftWeek(7)}
-            disabled={true}
+            disabled={false}
             className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 shadow-sm transition-all active:scale-95 disabled:opacity-50"
             title="Next Sunday"
           >
