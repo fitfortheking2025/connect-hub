@@ -35,6 +35,7 @@ import {
 } from "@/app/actions/scheduleAction";
 import CustomMemberSelect from "@/app/components/CustomMemberSelect";
 import ScheduleCapacityModal from "@/app/components/ScheduleCapacityModal";
+import Link from "next/link";
 
 interface Attendee {
   memberId?: string;
@@ -572,6 +573,17 @@ export default function AdminScheduleClientView({
                   <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   <span>Capacities ({maxMembers})</span>
                 </button>
+              )}
+
+              {userRole === "ADMIN" && (
+                <Link
+                  href="/sunday-schedule/matrix"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-[#FF6B00] text-xs font-black transition-all border border-orange-200/60 shadow-xs"
+                  title="View Yearly Attendance Matrix & Consistency Trends"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-[#FF6B00] shrink-0" />
+                  <span>Yearly Matrix</span>
+                </Link>
               )}
             </div>
 
