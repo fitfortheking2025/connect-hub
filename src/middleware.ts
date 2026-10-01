@@ -15,6 +15,8 @@ export default auth((req) => {
     nextUrl.pathname.endsWith(".js") ||
     nextUrl.pathname.endsWith(".json") ||
     nextUrl.pathname.endsWith(".png") ||
+    nextUrl.pathname.endsWith(".jpg") ||
+    nextUrl.pathname.endsWith(".jpeg") ||
     nextUrl.pathname.endsWith(".ico") ||
     nextUrl.pathname.includes("workbox-") ||
     nextUrl.pathname.includes("swe-worker-")
@@ -26,9 +28,11 @@ export default auth((req) => {
   const isPublicIntake = nextUrl.pathname.startsWith("/intake");
   const isPublicSchedule = nextUrl.pathname.startsWith("/schedule");
   const isPublicConnectMember = nextUrl.pathname.startsWith("/connect-member");
+  const isVipDayRoute = nextUrl.pathname.startsWith("/vip-day");
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
 
-  if (isPublicSchedule || isPublicIntake || isPublicConnectMember) {
+  // Bypass authentication for public and standalone PIN/passcode-protected routes
+  if (isPublicSchedule || isPublicIntake || isPublicConnectMember || isVipDayRoute) {
     return NextResponse.next();
   }
 
@@ -63,7 +67,7 @@ export const config = {
      * Match all request paths except:
      * - API routes (/api/*)
      * - Next.js internal static assets (_next/static, _next/image)
-     * - Public static file extensions (.js, .json, .png, etc.)
+     * - Public static file extensions (.js, .json, .png, .jpg, .jpeg, etc.)
      */
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:js|json|png|jpg|jpeg|gif|svg|webp|ico)).*)",
   ],
