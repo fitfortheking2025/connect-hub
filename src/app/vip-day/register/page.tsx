@@ -14,46 +14,74 @@ import {
   ArrowRight, 
   Loader2, 
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Hash
 } from "lucide-react";
 import { registerVipDayAction } from "@/app/actions/vipDayAction";
 
 export default function VipDayRegisterPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
-  const [contactNumber, setContactNumber] = useState(""); // stores raw 10 digits without leading 0 or full 11 digits
+  const [contactNumber, setContactNumber] = useState("");
   const [discipler, setDiscipler] = useState("");
+  const [gender, setGender] = useState<number | null>(null); // 1 = Male, 2 = Female
+  const [age, setAge] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Matches the Welcome Card phone input format
   const handleContactChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let raw = e.target.value.replace(/\D/g, "");
-    // If user starts typing with "09...", trim leading 0
+    
+    if (raw.startsWith("63")) {
+      raw = raw.slice(2);
+    }
     if (raw.startsWith("0")) {
       raw = raw.slice(1);
     }
-    // Limit to 10 digits following +63 (e.g., 9XXXXXXXXX)
+    
     if (raw.length <= 10) {
       setContactNumber(raw);
       if (errorMsg) setErrorMsg(null);
     }
   };
 
-  // Formats into standard PH 11-digit format (09XXXXXXXXX)
+  const handleAgeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "");
+    if (raw.length <= 2) {
+      setAge(raw);
+      if (errorMsg) setErrorMsg(null);
+    }
+  };
+
   const fullNormalizedNumber = contactNumber ? `0${contactNumber}` : "";
+  const isContactValid = contactNumber.length === 10 && contactNumber.startsWith("9");
+  const isContactStarted = contactNumber.length > 0;
+  const parsedAge = parseInt(age, 10);
+  const isFormValid =
+    fullName.trim().length > 0 &&
+    isContactValid &&
+    discipler.trim().length > 0 &&
+    gender !== null &&
+    !isNaN(parsedAge) &&
+    parsedAge >= 10 &&
+    parsedAge <= 99;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
-    if (!fullName.trim() || !contactNumber.trim() || !discipler.trim()) {
+    if (!fullName.trim() || !contactNumber.trim() || !discipler.trim() || !gender || !parsedAge) {
       setErrorMsg("Please fill out all the fields below to get your pass.");
       return;
     }
 
-    if (contactNumber.length !== 10 || !contactNumber.startsWith("9")) {
-      setErrorMsg("Please enter a valid 10-digit mobile number starting with 9 (e.g. 9171234567).");
+    if (!isContactValid) {
+      setErrorMsg("Please enter a valid 10-digit mobile number starting with 9.");
+      return;
+    }
+
+    if (parsedAge < 10 || parsedAge > 99) {
+      setErrorMsg("Please enter a valid age.");
       return;
     }
 
@@ -62,6 +90,8 @@ export default function VipDayRegisterPage() {
         fullName,
         contactNumber: fullNormalizedNumber,
         discipler,
+        age: parsedAge,
+        gender,
       });
 
       if (res.success && res.ticketCode) {
@@ -85,7 +115,7 @@ export default function VipDayRegisterPage() {
         }}
       />
 
-      {/* Main Container: 760px */}
+      {/* Main Container */}
       <div className="w-full max-w-[760px] space-y-4 relative z-10">
         
         {/* Main Card */}
@@ -103,7 +133,7 @@ export default function VipDayRegisterPage() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
           </div>
 
-          {/* Invitation Copy & Warm Welcome */}
+          {/* Invitation Copy */}
           <div className="p-6 sm:p-9 pb-5 sm:pb-6 space-y-3">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 border border-orange-200/80 text-[11px] font-black text-[#FF6B00] uppercase tracking-wider">
@@ -191,7 +221,60 @@ export default function VipDayRegisterPage() {
               />
             </div>
 
-            {/* Field 2: Contact Number (Exact Welcome Card Style) */}
+            {/* Field 2: Gender & Age Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              {/* Gender */}
+              <div className="space-y-1.5">
+                <label className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  Gender <span className="text-[#FF6B00]">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGender(2)}
+                    className={`py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all border cursor-pointer ${
+                      gender === 2
+                        ? "bg-[#FF6B00] text-white border-[#FF6B00] shadow-sm"
+                        : "bg-[#FAF8F5] text-slate-600 border-stone-200 hover:bg-stone-100"
+                    }`}
+                  >
+                    Female
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGender(1)}
+                    className={`py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all border cursor-pointer ${
+                      gender === 1
+                        ? "bg-[#FF6B00] text-white border-[#FF6B00] shadow-sm"
+                        : "bg-[#FAF8F5] text-slate-600 border-stone-200 hover:bg-stone-100"
+                    }`}
+                  >
+                    Male
+                  </button>
+                </div>
+              </div>
+
+              {/* Age (years) */}
+              <div className="space-y-1.5">
+                <label className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Hash className="w-4 h-4 text-[#FF6B00]" />
+                  Age (Years) <span className="text-[#FF6B00]">*</span>
+                </label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  required
+                  placeholder="e.g. 24"
+                  value={age}
+                  onChange={handleAgeChange}
+                  className="w-full px-4 py-3 sm:py-3.5 rounded-2xl bg-[#FAF8F5] focus:bg-white border border-stone-200 focus:border-[#FF6B00] text-sm sm:text-base font-bold text-slate-900 placeholder:text-stone-400 focus:outline-none focus:ring-4 focus:ring-orange-500/10 transition-all"
+                />
+              </div>
+
+            </div>
+
+            {/* Field 3: Contact Number */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
@@ -202,8 +285,16 @@ export default function VipDayRegisterPage() {
                 </span>
               </div>
 
-              {/* Exact Pill Input Layout */}
-              <div className="flex items-center rounded-2xl bg-[#FAF8F5] border border-stone-200 focus-within:border-[#FF6B00] focus-within:bg-white focus-within:ring-4 focus-within:ring-orange-500/10 transition-all overflow-hidden p-1 sm:p-1.5">
+              {/* Input Pill Container */}
+              <div
+                className={`flex items-center rounded-2xl bg-[#FAF8F5] border transition-all overflow-hidden p-1 sm:p-1.5 ${
+                  isContactValid
+                    ? "border-emerald-400 focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10"
+                    : isContactStarted && (!contactNumber.startsWith("9") || contactNumber.length === 10)
+                    ? "border-rose-300 focus-within:border-rose-500 focus-within:ring-4 focus-within:ring-rose-500/10"
+                    : "border-stone-200 focus-within:border-[#FF6B00] focus-within:ring-4 focus-within:ring-orange-500/10"
+                }`}
+              >
                 <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-stone-200/80 shadow-2xs text-xs sm:text-sm font-bold text-slate-700 shrink-0">
                   <span className="text-base leading-none">🇵🇭</span>
                   <span>+63</span>
@@ -214,25 +305,44 @@ export default function VipDayRegisterPage() {
                   pattern="[0-9]*"
                   maxLength={10}
                   required
-                  placeholder="9754789902"
+                  placeholder="9XXXXXXXXX"
                   value={contactNumber}
                   onChange={handleContactChange}
                   className="w-full px-3 py-2 bg-transparent text-sm sm:text-base font-mono font-bold text-slate-900 placeholder:text-stone-300 focus:outline-none tracking-wider"
                 />
               </div>
 
-              {/* Saved As Preview */}
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-medium text-slate-500">
-                  Saved as <span className="font-mono font-bold text-slate-800">{fullNormalizedNumber || "09XXXXXXXXX"}</span>
-                </span>
-                <span className={`text-[11px] font-mono font-bold ${contactNumber.length === 10 ? "text-emerald-600" : "text-slate-400"}`}>
+              {/* Realtime Status Helper */}
+              <div className="flex items-center justify-between px-1 text-xs">
+                <div>
+                  {isContactStarted && !contactNumber.startsWith("9") ? (
+                    <span className="text-rose-500 font-semibold">Must start with 9</span>
+                  ) : isContactValid ? (
+                    <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 inline" /> Valid (Saved as {fullNormalizedNumber})
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">
+                      Saved as <span className="font-mono font-bold text-slate-800">{fullNormalizedNumber || "09XXXXXXXXX"}</span>
+                    </span>
+                  )}
+                </div>
+
+                <div
+                  className={`font-mono font-bold text-[11px] ${
+                    isContactValid
+                      ? "text-emerald-600"
+                      : contactNumber.length > 0
+                      ? "text-orange-600"
+                      : "text-slate-400"
+                  }`}
+                >
                   {contactNumber.length}/10 digits
-                </span>
+                </div>
               </div>
             </div>
 
-            {/* Field 3: Discipler */}
+            {/* Field 4: Discipler */}
             <div className="space-y-1.5">
               <label className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-[#FF6B00]" />
@@ -252,7 +362,7 @@ export default function VipDayRegisterPage() {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={isPending || !fullName.trim() || contactNumber.length !== 10 || !discipler.trim()}
+                disabled={isPending || !isFormValid}
                 className="w-full py-4 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-sm sm:text-base font-black shadow-lg shadow-orange-500/25 transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 group cursor-pointer"
               >
                 {isPending ? (

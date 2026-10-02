@@ -6,6 +6,7 @@ export interface IVipEventRegistration extends Document {
   fullName: string;
   contactNumber: string;
   discipler: string;
+  ageGroup: "Youth" | "Young Adult" | "River Men" | "River Women" | "Seasoned";
   eventDate: string; // "2026-11-07"
   status: "REGISTERED" | "ATTENDED" | "CANCELLED";
   attendedAt?: Date;
@@ -39,6 +40,12 @@ const VipEventRegistrationSchema = new Schema<IVipEventRegistration>(
       type: String,
       required: true,
       trim: true,
+      index: true,
+    },
+    ageGroup: {
+      type: String,
+      enum: ["Youth", "Young Adult", "River Men", "River Women", "Seasoned"],
+      required: true,
       index: true,
     },
     eventDate: {

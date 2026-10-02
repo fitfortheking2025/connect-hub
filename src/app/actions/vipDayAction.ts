@@ -11,17 +11,33 @@ const generateTicketSuffix = customAlphabet("23456789ABCDEFGHJKLMNPQRSTUVWXYZ", 
 const SCANNER_PIN = process.env.VIP_SCANNER_PIN || "2026";
 const MONITOR_PASSCODE = process.env.VIP_MONITOR_PASSCODE || "VIP-LEAD-88";
 
+// Add helper inside src/app/actions/vipDayAction.ts
+function resolveAgeGroup(age: number, gender: number): "Youth" | "Young Adult" | "River Men" | "River Women" | "Seasoned" {
+  if (age <= 19) {
+    return "Youth";
+  }
+  if (age <= 35) {
+    return "Young Adult";
+  }
+  if (age <= 50) {
+    return gender === 1 ? "River Men" : "River Women";
+  }
+  return "Seasoned";
+}
+
 // --- EXISTING REGISTRATION ACTIONS ---
 export async function registerVipDayAction(payload: {
   fullName: string;
   contactNumber: string;
   discipler: string;
+  age: number;
+  gender: number; // 1 = Male, 2 = Female
 }) {
   try {
     await dbConnect();
-    const { fullName, contactNumber, discipler } = payload;
+    const { fullName, contactNumber, discipler, age, gender } = payload;
 
-    if (!fullName?.trim() || !contactNumber?.trim() || !discipler?.trim()) {
+    if (!fullName?.trim() || !contactNumber?.trim() || !discipler?.trim() || !age || !gender) {
       return { success: false, error: "Please fill out all required fields." };
     }
 
@@ -35,6 +51,9 @@ export async function registerVipDayAction(payload: {
         error: "Contact number must be exactly 11 digits (e.g. 09171234567).",
       };
     }
+
+    // Resolve age group based on your logic
+    const ageGroup = resolveAgeGroup(Number(age), Number(gender));
 
     const existing = await VipEventRegistration.findOne({
       eventDate: "2026-11-07",
@@ -67,6 +86,7 @@ export async function registerVipDayAction(payload: {
       fullName: trimmedName,
       contactNumber: cleanedContact,
       discipler: trimmedDiscipler,
+      ageGroup, // Saves only the calculated group
       eventDate: "2026-11-07",
       status: "REGISTERED",
     });
