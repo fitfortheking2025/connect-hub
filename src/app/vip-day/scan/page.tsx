@@ -11,9 +11,8 @@ import {
   Search, 
   Lock, 
   LogOut, 
-  UserCheck, 
   RefreshCw,
-  Sparkles
+  AlertCircle
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import { 
@@ -23,19 +22,17 @@ import {
 } from "@/app/actions/vipDayAction";
 
 export default function VipScanPage() {
-  // Session State
   const [pin, setPin] = useState("");
   const [stationName, setStationName] = useState("");
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Scanner & UI State
   const [scanResult, setScanResult] = useState<{
     status: "SUCCESS" | "ALREADY_CHECKED_IN" | "NOT_FOUND" | "ERROR";
     guest?: any;
     error?: string;
   } | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   // Manual Lookup Fallback State
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,7 +42,11 @@ export default function VipScanPage() {
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const isScanningRef = useRef(false);
 
-  // Audio helper (AudioContext synthesized chimes, zero external assets needed)
+  // SYNCHRONOUS LOCKS to prevent frame racing
+  const isLockedRef = useRef(false);
+  const lastScannedCodeRef = useRef<string | null>(null);
+  const lastScannedTimeRef = useRef<number>(0);
+
   const playSound = (type: "success" | "warning" | "error") => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -55,8 +56,8 @@ export default function VipScanPage() {
       gain.connect(ctx.destination);
 
       if (type === "success") {
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
         gain.gain.setValueAtTime(0.2, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
         osc.start();
@@ -83,11 +84,10 @@ export default function VipScanPage() {
         else navigator.vibrate(300);
       }
     } catch {
-      // Audio playback blocked or unsupported
+      // Audio autoplay policy
     }
   };
 
-  // Restore saved station session
   useEffect(() => {
     const savedPin = localStorage.getItem("vip_scan_pin");
     const savedStation = localStorage.getItem("vip_station_name") || "Entrance 1";
@@ -102,7 +102,6 @@ export default function VipScanPage() {
     }
   }, []);
 
-  // Handle PIN unlock
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     setPinError(null);
@@ -116,80 +115,156 @@ export default function VipScanPage() {
     }
   };
 
+  const stopCamera = async () => {
+    if (html5QrCodeRef.current && isScanningRef.current) {
+      try {
+        await html5QrCodeRef.current.stop();
+        isScanningRef.current = false;
+      } catch (err) {
+        console.warn("Camera stop error:", err);
+      }
+    }
+  };
+
   const handleLogout = () => {
     stopCamera();
     localStorage.removeItem("vip_scan_pin");
     setIsUnlocked(false);
   };
 
-  // Camera Lifecycle
+  // Process check-in with synchronous debouncing & cooldown
+  const handleCheckIn = async (code: string) => {
+    const cleanCode = code.trim().toUpperCase();
+    const now = Date.now();
+
+    // 1. If currently busy processing a check-in, drop frame
+    if (isLockedRef.current) return;
+
+    // 2. Cooldown check: ignore the exact same QR code if scanned within the last 4 seconds
+    if (lastScannedCodeRef.current === cleanCode && now - lastScannedTimeRef.current < 4000) {
+      return;
+    }
+
+    // Instantly lock before any async gap
+    isLockedRef.current = true;
+    lastScannedCodeRef.current = cleanCode;
+    lastScannedTimeRef.current = now;
+
+    try {
+      const res = await checkInVipGuestAction({
+        ticketCode: cleanCode,
+        stationName: stationName || "Door Scanner",
+        pin,
+      });
+
+      if (res.status === "SUCCESS") {
+        playSound("success");
+        setScanResult({ status: "SUCCESS", guest: res.guest });
+      } else if (res.status === "ALREADY_CHECKED_IN") {
+        playSound("warning");
+        setScanResult({ status: "ALREADY_CHECKED_IN", guest: res.guest });
+      } else {
+        playSound("error");
+        setScanResult({ status: "NOT_FOUND", error: res.error || "Ticket not found." });
+      }
+    } catch {
+      playSound("error");
+      setScanResult({ status: "ERROR", error: "Network or server connection issue." });
+    } finally {
+      // Hold screen notification for 2.2 seconds before allowing the next unique scan
+      setTimeout(() => {
+        setScanResult(null);
+        isLockedRef.current = false;
+      }, 2200);
+    }
+  };
+
+  // Camera setup
   useEffect(() => {
     if (!isUnlocked) return;
 
+    let mounted = true;
     const qrScannerId = "qr-reader-container";
-    const qrScanner = new Html5Qrcode(qrScannerId);
-    html5QrCodeRef.current = qrScanner;
 
-    const startCamera = async () => {
+    const initScanner = async () => {
       try {
+        setCameraError(null);
+        const qrScanner = new Html5Qrcode(qrScannerId, {
+          verbose: false,
+          formatsToSupport: [0],
+        });
+        html5QrCodeRef.current = qrScanner;
+
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          if (mounted) setCameraError("No camera detected on this device.");
+          return;
+        }
+
+        const backCamera = cameras.find(
+          (c) =>
+            c.label.toLowerCase().includes("back") ||
+            c.label.toLowerCase().includes("rear") ||
+            c.label.toLowerCase().includes("environment")
+        );
+        const selectedCameraId = backCamera ? backCamera.id : cameras[cameras.length - 1].id;
+
+        const config = {
+          fps: 15,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            return {
+              width: Math.floor(minEdge * 0.75),
+              height: Math.floor(minEdge * 0.75),
+            };
+          },
+          aspectRatio: 1.0,
+        };
+
         await qrScanner.start(
-          { facingMode: "environment" },
-          { fps: 15, qrbox: { width: 240, height: 240 } },
-          async (decodedText) => {
-            if (isProcessing) return;
+          selectedCameraId,
+          config,
+          (decodedText) => {
+            // Drop immediately if lock is engaged
+            if (isLockedRef.current) return;
             handleCheckIn(decodedText);
           },
           () => {}
         );
-        isScanningRef.current = true;
-      } catch (err) {
-        console.error("Camera start failed:", err);
+
+        if (mounted) {
+          isScanningRef.current = true;
+          const videoElement = document.querySelector<HTMLVideoElement>(`#${qrScannerId} video`);
+          if (videoElement) {
+            videoElement.setAttribute("playsinline", "true");
+            videoElement.setAttribute("webkit-playsinline", "true");
+            videoElement.muted = true;
+            videoElement.play().catch(() => {});
+          }
+        }
+      } catch (err: any) {
+        console.error("Camera startup error:", err);
+        if (mounted) {
+          setCameraError(
+            err?.message?.includes("Permission") || err?.name === "NotAllowedError"
+              ? "Camera permission denied. Please allow camera access in browser settings."
+              : "Unable to start camera. Please verify permissions."
+          );
+        }
       }
     };
 
-    startCamera();
+    const timer = setTimeout(() => {
+      initScanner();
+    }, 250);
 
     return () => {
+      mounted = false;
+      clearTimeout(timer);
       stopCamera();
     };
   }, [isUnlocked]);
 
-  const stopCamera = () => {
-    if (html5QrCodeRef.current && isScanningRef.current) {
-      html5QrCodeRef.current.stop().catch(() => {}).finally(() => {
-        isScanningRef.current = false;
-      });
-    }
-  };
-
-  // Process check-in (from camera or manual tap)
-  const handleCheckIn = async (code: string) => {
-    setIsProcessing(true);
-    const res = await checkInVipGuestAction({
-      ticketCode: code,
-      stationName: stationName || "Door Scanner",
-      pin,
-    });
-
-    if (res.status === "SUCCESS") {
-      playSound("success");
-      setScanResult({ status: "SUCCESS", guest: res.guest });
-    } else if (res.status === "ALREADY_CHECKED_IN") {
-      playSound("warning");
-      setScanResult({ status: "ALREADY_CHECKED_IN", guest: res.guest });
-    } else {
-      playSound("error");
-      setScanResult({ status: "NOT_FOUND", error: res.error || "Ticket not found." });
-    }
-
-    // Auto-resume camera scanning after 1.8 seconds
-    setTimeout(() => {
-      setScanResult(null);
-      setIsProcessing(false);
-    }, 1800);
-  };
-
-  // Manual Search Handler
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -244,7 +319,7 @@ export default function VipScanPage() {
               </label>
               <input
                 type="text"
-                placeholder="e.g. Entrance 1 / Judy"
+                placeholder="e.g. Rashil"
                 value={stationName}
                 onChange={(e) => setStationName(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-white text-xs font-medium focus:outline-none focus:border-[#FF6B00]"
@@ -253,7 +328,7 @@ export default function VipScanPage() {
 
             <button
               type="submit"
-              className="w-full py-3.5 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black uppercase tracking-wider transition-all"
+              className="w-full py-3.5 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
             >
               Unlock Scanner
             </button>
@@ -297,14 +372,21 @@ export default function VipScanPage() {
       {/* Main Viewfinder Area */}
       <main className="flex-1 flex flex-col items-center justify-center p-4 max-w-md mx-auto w-full relative">
         
-        {/* Camera Viewfinder */}
+        {cameraError && (
+          <div className="w-full mb-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+            <span>{cameraError}</span>
+          </div>
+        )}
+
+        {/* Camera Container */}
         <div className="w-full aspect-square max-w-[320px] rounded-3xl overflow-hidden border-2 border-dashed border-orange-500/40 relative shadow-2xl bg-black flex items-center justify-center">
-          <div id="qr-reader-container" className="w-full h-full object-cover" />
+          <div id="qr-reader-container" className="w-full h-full [&_video]:object-cover [&_video]:w-full [&_video]:h-full" />
 
           {/* Crosshairs & Scanning Indicator */}
-          {!scanResult && (
+          {!scanResult && !cameraError && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-              <div className="w-48 h-48 border-2 border-[#FF6B00] rounded-2xl relative">
+              <div className="w-48 h-48 border-2 border-[#FF6B00] rounded-2xl relative shadow-[0_0_20px_rgba(255,107,0,0.3)]">
                 <span className="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-white" />
                 <span className="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-white" />
                 <span className="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-white" />
@@ -313,15 +395,15 @@ export default function VipScanPage() {
             </div>
           )}
 
-          {/* Fullscreen Overlay Notification Card */}
+          {/* Result Notification Card */}
           {scanResult && (
             <div
               className={`absolute inset-0 z-30 p-6 flex flex-col items-center justify-center text-center backdrop-blur-md transition-all ${
                 scanResult.status === "SUCCESS"
-                  ? "bg-emerald-950/90 text-white"
+                  ? "bg-emerald-950/95 text-white"
                   : scanResult.status === "ALREADY_CHECKED_IN"
-                  ? "bg-amber-950/90 text-white"
-                  : "bg-rose-950/90 text-white"
+                  ? "bg-amber-950/95 text-white"
+                  : "bg-rose-950/95 text-white"
               }`}
             >
               {scanResult.status === "SUCCESS" && (
@@ -364,6 +446,16 @@ export default function VipScanPage() {
                   </p>
                 </>
               )}
+
+              {scanResult.status === "ERROR" && (
+                <>
+                  <AlertCircle className="w-16 h-16 text-rose-400 mb-2" />
+                  <span className="text-xs font-black uppercase tracking-wider text-rose-300">
+                    Scan Error
+                  </span>
+                  <p className="text-xs text-rose-200 mt-1">{scanResult.error}</p>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -372,7 +464,7 @@ export default function VipScanPage() {
           Aim camera directly at the attendee&apos;s VIP QR ticket
         </p>
 
-        {/* Emergency Search Fallback Drawer */}
+        {/* Manual Search Fallback Drawer */}
         <div className="w-full mt-6 bg-[#161D2C] p-4 rounded-2xl border border-white/10 space-y-3">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-slate-300 flex items-center gap-1.5">
