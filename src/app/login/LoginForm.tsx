@@ -13,6 +13,7 @@ import {
   Loader2, 
   ClipboardPenLine,
   Calendar,
+  Sparkles,
   Eye,
   EyeOff
 } from "lucide-react";
@@ -41,13 +42,22 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col justify-between px-6 py-8 sm:px-12 lg:px-20">
+    <div className="min-h-screen w-full bg-white flex flex-col justify-between px-6 py-6 sm:px-10 lg:px-16 selection:bg-[#FF6B00] selection:text-white relative">
       
-      {/* Top Spacer */}
-      <div className="hidden sm:block" />
+      {/* Top Header Row with Top-Right Action */}
+      <header className="w-full flex items-center justify-end">
+        <Link
+          href="/vip-day/register"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 hover:bg-orange-50 border border-slate-200 hover:border-orange-200 text-xs font-semibold text-slate-600 hover:text-[#FF6B00] transition-all shadow-2xs group cursor-pointer"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
+          <span>VIP Day Pass</span>
+          <ArrowRight className="w-3 h-3 text-slate-400 group-hover:text-[#FF6B00] group-hover:translate-x-0.5 transition-all" />
+        </Link>
+      </header>
 
       {/* Main Full-Screen Form Canvas */}
-      <main className="w-full max-w-md mx-auto py-8 sm:py-12 space-y-6">
+      <main className="w-full max-w-md mx-auto py-4 sm:py-6 space-y-6">
         
         {/* Centered Logo & Branding */}
         <div className="flex flex-col items-center text-center space-y-3">
@@ -117,7 +127,7 @@ export default function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="p-2 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-2 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -130,7 +140,7 @@ export default function LoginForm() {
             <button
               type="submit"
               disabled={isPending}
-              className="w-full py-3.5 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 hover:shadow-orange-500/35 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50"
+              className="w-full py-3.5 rounded-2xl bg-[#FF6B00] hover:bg-[#e05e00] text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 hover:shadow-orange-500/35 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
             >
               {isPending ? (
                 <>
@@ -146,8 +156,8 @@ export default function LoginForm() {
 
         </form>
 
-        {/* Quick Public Links: Sunday Schedule & Visitor Intake */}
-        <div className="space-y-2 pt-1 border-t border-slate-100">
+        {/* Quick Public Links */}
+        <div className="space-y-2 pt-2 border-t border-slate-100">
           
           {/* Sunday Attendance Board Link */}
           <Link
