@@ -9,7 +9,7 @@ const generateTicketSuffix = customAlphabet("23456789ABCDEFGHJKLMNPQRSTUVWXYZ", 
 
 // Default event credentials (can be overridden via environment variables)
 const SCANNER_PIN = process.env.VIP_SCANNER_PIN || "2026";
-const MONITOR_PASSCODE = process.env.VIP_MONITOR_PASSCODE || "VIP-LEAD-88";
+const MONITOR_PASSCODE = process.env.VIP_MONITOR_PASSCODE || "VIP-MONITORING-2026";
 
 // Add helper inside src/app/actions/vipDayAction.ts
 function resolveAgeGroup(age: number, gender: number): "Youth" | "Young Adult" | "River Men" | "River Women" | "Seasoned" {

@@ -174,9 +174,6 @@ export default function VipMonitorPage() {
 
           <form onSubmit={handleUnlock} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-extrabold uppercase tracking-wider text-slate-600">
-                Lead Passcode (Default: VIP-LEAD-88)
-              </label>
               <input
                 type="password"
                 required
