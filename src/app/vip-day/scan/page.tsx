@@ -299,9 +299,6 @@ export default function VipScanPage() {
 
           <form onSubmit={handleUnlock} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Event PIN (Default: 2026)
-              </label>
               <input
                 type="password"
                 inputMode="numeric"
