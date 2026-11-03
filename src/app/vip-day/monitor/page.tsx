@@ -266,23 +266,22 @@ export default function VipMonitorPage() {
             <button
               onClick={handleOpenSMS}
               disabled={filteredAttendees.length === 0}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+              className={`p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
                 smsTriggered
                   ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
                   : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 disabled:opacity-40 disabled:pointer-events-none"
               }`}
-              title="Open text messaging app with these numbers"
+              title={`Open text messaging app (${filteredAttendees.length} recipients)`}
             >
               {smsTriggered ? (
                 <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Opening SMS...</span>
+                  <Check className="w-4 h-4 text-white shrink-0" />
+                  <span className="hidden sm:inline">Opening SMS...</span>
                 </>
               ) : (
                 <>
-                  <MessageSquareText className="w-3.5 h-3.5 text-[#FF6B00]" />
+                  <MessageSquareText className="w-4 h-4 text-[#FF6B00] shrink-0" />
                   <span className="hidden sm:inline">Text All ({filteredAttendees.length})</span>
-                  <span className="sm:hidden">Text ({filteredAttendees.length})</span>
                 </>
               )}
             </button>
@@ -300,9 +299,10 @@ export default function VipMonitorPage() {
             {/* Export CSV Action */}
             <button
               onClick={handleExportCSV}
-              className="px-3 py-1.5 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Export CSV"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">Export CSV</span>
             </button>
 
@@ -312,7 +312,7 @@ export default function VipMonitorPage() {
               className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 cursor-pointer"
               title="Lock Session"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 shrink-0" />
             </button>
           </div>
         </div>
