@@ -11,7 +11,9 @@ import {
   Lock, 
   RefreshCw, 
   LogOut, 
-  CheckCircle2
+  CheckCircle2,
+  Check,
+  MessageSquareText
 } from "lucide-react";
 import { 
   verifyMonitorPasscodeAction, 
@@ -31,6 +33,7 @@ export default function VipMonitorPage() {
   const [stats, setStats] = useState({ totalRegistered: 0, totalAttended: 0, turnoutRate: 0 });
   const [disciplers, setDisciplers] = useState<any[]>([]);
   const [attendees, setAttendees] = useState<any[]>([]);
+  const [smsTriggered, setSmsTriggered] = useState(false);
 
   // Filter & Search
   const [filterDiscipler, setFilterDiscipler] = useState("ALL");
@@ -112,7 +115,61 @@ export default function VipMonitorPage() {
     return { name: group, total, attended, rate };
   });
 
-  // CSV Export with Age Group column
+  // Filtered roster
+  const filteredAttendees = attendees.filter((a) => {
+    const matchesSearch =
+      a.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.contactNumber.includes(searchQuery) ||
+      a.ticketCode.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesDiscipler = filterDiscipler === "ALL" || a.discipler === filterDiscipler;
+    const matchesAgeGroup = filterAgeGroup === "ALL" || a.ageGroup === filterAgeGroup;
+    const matchesStatus = filterStatus === "ALL" || a.status === filterStatus;
+
+    return matchesSearch && matchesDiscipler && matchesAgeGroup && matchesStatus;
+  });
+
+  // SMS Broadcast trigger: opens native SMS app with filtered recipients pre-populated
+  const handleOpenSMS = async () => {
+    if (filteredAttendees.length === 0) return;
+
+    const numbersArray = Array.from(
+      new Set(
+        filteredAttendees
+          .map((a) => a.contactNumber?.trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (numbersArray.length === 0) return;
+
+    // Copy to clipboard as backup
+    try {
+      await navigator.clipboard.writeText(numbersArray.join("\n"));
+      setSmsTriggered(true);
+      setTimeout(() => setSmsTriggered(false), 2500);
+    } catch {
+      // ignore clipboard error if browser blocks it
+    }
+
+    // Detect iOS vs Android
+    const isIOS =
+      typeof navigator !== "undefined" &&
+      (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+    // Formulate native SMS URI
+    let smsUri = "";
+    if (isIOS) {
+      smsUri = `sms:/open?addresses=${encodeURIComponent(numbersArray.join(","))}`;
+    } else {
+      smsUri = `sms:${encodeURIComponent(numbersArray.join(";"))}`;
+    }
+
+    window.location.href = smsUri;
+  };
+
+  // CSV Export
   const handleExportCSV = () => {
     if (attendees.length === 0) return;
     const headers = ["Ticket Code", "Name", "Contact", "Age Group", "Discipler", "Status", "Attended Time", "Scanned By"];
@@ -136,20 +193,6 @@ export default function VipMonitorPage() {
     link.click();
     document.body.removeChild(link);
   };
-
-  // Filtered roster
-  const filteredAttendees = attendees.filter((a) => {
-    const matchesSearch =
-      a.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.contactNumber.includes(searchQuery) ||
-      a.ticketCode.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesDiscipler = filterDiscipler === "ALL" || a.discipler === filterDiscipler;
-    const matchesAgeGroup = filterAgeGroup === "ALL" || a.ageGroup === filterAgeGroup;
-    const matchesStatus = filterStatus === "ALL" || a.status === filterStatus;
-
-    return matchesSearch && matchesDiscipler && matchesAgeGroup && matchesStatus;
-  });
 
   // 1. Passcode Prompt
   if (!isUnlocked) {
@@ -219,6 +262,32 @@ export default function VipMonitorPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Native SMS Broadcast Button */}
+            <button
+              onClick={handleOpenSMS}
+              disabled={filteredAttendees.length === 0}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                smsTriggered
+                  ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 disabled:opacity-40 disabled:pointer-events-none"
+              }`}
+              title="Open text messaging app with these numbers"
+            >
+              {smsTriggered ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Opening SMS...</span>
+                </>
+              ) : (
+                <>
+                  <MessageSquareText className="w-3.5 h-3.5 text-[#FF6B00]" />
+                  <span className="hidden sm:inline">Text All ({filteredAttendees.length})</span>
+                  <span className="sm:hidden">Text ({filteredAttendees.length})</span>
+                </>
+              )}
+            </button>
+
+            {/* Refresh Action */}
             <button
               onClick={() => loadData()}
               disabled={loading}
@@ -227,6 +296,8 @@ export default function VipMonitorPage() {
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </button>
+
+            {/* Export CSV Action */}
             <button
               onClick={handleExportCSV}
               className="px-3 py-1.5 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
@@ -234,6 +305,8 @@ export default function VipMonitorPage() {
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Export CSV</span>
             </button>
+
+            {/* Lock Session */}
             <button
               onClick={handleLogout}
               className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 cursor-pointer"
