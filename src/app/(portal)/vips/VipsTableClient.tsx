@@ -203,11 +203,15 @@ export default function VipsTableClient({
   );
 
   const untextedVips = data.filter((v) => !v.textedAlready && !!formatPhilippineMobile(v.contact));
-  const untextedPhoneNumbers = untextedVips
-    .map((v) => formatPhilippineMobile(v.contact)!)
-    .filter(Boolean);
+  const untextedPhoneNumbers = Array.from(
+    new Set(
+      untextedVips
+        .map((v) => formatPhilippineMobile(v.contact)!)
+        .filter(Boolean)
+    )
+  );
 
-  // Target Sunday Date: find the most recent Sunday from logged records, or fallback to the latest Sunday
+  // Target Sunday Date calculation
   const targetSundayDate = (() => {
     const sundayRecords = data.filter((item) => {
       if (!item.createdAt) return false;
@@ -230,7 +234,6 @@ export default function VipsTableClient({
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   })();
 
-  // Define start of target Sunday (00:00:00)
   const windowStart = new Date(
     targetSundayDate.getFullYear(),
     targetSundayDate.getMonth(),
@@ -238,7 +241,6 @@ export default function VipsTableClient({
     0, 0, 0, 0
   );
 
-  // Define end of Monday (23:59:59.999) — 1 day after Sunday
   const windowEnd = new Date(
     targetSundayDate.getFullYear(),
     targetSundayDate.getMonth(),
@@ -246,7 +248,6 @@ export default function VipsTableClient({
     23, 59, 59, 999
   );
 
-  // Filter records created within Sunday through Monday
   const targetSundayRecords = data.filter((item) => {
     if (!item.createdAt) return false;
     const itemTime = new Date(item.createdAt).getTime();
@@ -449,12 +450,42 @@ export default function VipsTableClient({
     });
   };
 
+  // Safe clipboard helper that works consistently across Android & iOS web views
+  const copyTextToClipboard = async (text: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      throw new Error("Clipboard API unavailable");
+    } catch {
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const success = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        return success;
+      } catch {
+        return false;
+      }
+    }
+  };
+
+  // Batch copy numbers (formatted with comma + space for direct paste into SMS apps)
   const handleCopyNumbers = async () => {
     if (untextedPhoneNumbers.length === 0) return;
-    await navigator.clipboard.writeText(untextedPhoneNumbers.join(", "));
+    const commaSeparated = untextedPhoneNumbers.join(", ");
+    
+    await copyTextToClipboard(commaSeparated);
     setCopiedBatch(true);
-    showToast(`Copied ${untextedPhoneNumbers.length} phone numbers.`);
-    setTimeout(() => setCopiedBatch(false), 2000);
+    showToast(`Copied ${untextedPhoneNumbers.length} phone numbers!`);
+    setTimeout(() => setCopiedBatch(false), 2500);
   };
 
   const handleMarkBatchTexted = () => {
@@ -475,19 +506,39 @@ export default function VipsTableClient({
   };
 
   const encodedWelcomeBody = encodeURIComponent(WELCOME_SMS_MESSAGE);
-  const isIos = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const smsQueryPrefix = isIos ? "&" : "?";
 
+  // Broadcast SMS: Copies numbers to clipboard, targets Android smsto: or iOS sms:/open
   const handleBroadcastSms = async () => {
     if (untextedPhoneNumbers.length === 0) return;
 
-    await navigator.clipboard.writeText(untextedPhoneNumbers.join(", "));
+    const commaSeparated = untextedPhoneNumbers.join(", ");
+    await copyTextToClipboard(commaSeparated);
     setCopiedBatch(true);
-    showToast(`Numbers copied! Opening messaging app...`);
+    showToast(`Copied ${untextedPhoneNumbers.length} numbers! Opening SMS...`);
     setTimeout(() => setCopiedBatch(false), 3000);
 
-    const bulkSmsUrl = `sms:${smsQueryPrefix}body=${encodedWelcomeBody}`;
-    window.location.href = bulkSmsUrl;
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+    const isIOS =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+
+    let smsUri = "";
+    if (isIOS) {
+      smsUri = `sms:/open?addresses=${encodeURIComponent(untextedPhoneNumbers.join(","))}&body=${encodedWelcomeBody}`;
+    } else if (isAndroid) {
+      smsUri = `smsto:${untextedPhoneNumbers.join(",")}?body=${encodedWelcomeBody}`;
+    } else {
+      smsUri = `sms:?body=${encodedWelcomeBody}`;
+    }
+
+    const link = document.createElement("a");
+    link.href = smsUri;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -662,28 +713,37 @@ export default function VipsTableClient({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Copy Numbers Button with Mobile Icon-Only Optimization */}
             <button
               onClick={handleCopyNumbers}
               disabled={untextedPhoneNumbers.length === 0}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold transition-all hover:bg-slate-50 disabled:opacity-40"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold transition-all hover:bg-slate-50 disabled:opacity-40"
+              title={`Copy ${untextedPhoneNumbers.length} numbers to clipboard`}
             >
               {copiedBatch ? (
                 <>
-                  <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> Copied
+                  <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Copied!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-3.5 h-3.5 text-slate-400" /> Copy ({untextedPhoneNumbers.length})
+                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="hidden sm:inline">Copy ({untextedPhoneNumbers.length})</span>
+                  <span className="sm:hidden font-mono">({untextedPhoneNumbers.length})</span>
                 </>
               )}
             </button>
 
+            {/* Broadcast SMS Button with Mobile Icon-Only Optimization */}
             <button
               onClick={handleBroadcastSms}
               disabled={untextedPhoneNumbers.length === 0}
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#FF6B00] hover:bg-[#e05e00] text-white text-xs font-black shadow-md shadow-orange-500/20 transition-all disabled:opacity-40 active:scale-95"
+              title="Open text messaging app with these recipients"
             >
-              <Send className="w-3.5 h-3.5" /> Broadcast SMS
+              <Send className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Broadcast SMS</span>
+              <span className="sm:hidden">SMS</span>
             </button>
 
             {untextedPhoneNumbers.length > 0 && (
@@ -693,7 +753,8 @@ export default function VipsTableClient({
                 className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-sm"
                 title="Mark all as texted"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Texted
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Texted</span>
               </button>
             )}
           </div>
@@ -713,7 +774,7 @@ export default function VipsTableClient({
             const gender = getGenderInfo(item.gender);
             const isCopied = copiedId === String(item._id);
             const singleSmsHref = formattedPhone
-              ? `sms:${formattedPhone}${smsQueryPrefix}body=${encodedWelcomeBody}`
+              ? `sms:${formattedPhone}?body=${encodedWelcomeBody}`
               : "#";
 
             return (
@@ -892,7 +953,7 @@ export default function VipsTableClient({
                   const gender = getGenderInfo(item.gender);
                   const isCopied = copiedId === String(item._id);
                   const singleSmsHref = formattedPhone
-                    ? `sms:${formattedPhone}${smsQueryPrefix}body=${encodedWelcomeBody}`
+                    ? `sms:${formattedPhone}?body=${encodedWelcomeBody}`
                     : "#";
 
                   return (
