@@ -129,7 +129,7 @@ export default function VipMonitorPage() {
     return matchesSearch && matchesDiscipler && matchesAgeGroup && matchesStatus;
   });
 
-  // SMS Broadcast trigger: opens native SMS app with filtered recipients pre-populated
+  // SMS Broadcast trigger with adaptive Android & iOS handling + clipboard fallback
   const handleOpenSMS = async () => {
     if (filteredAttendees.length === 0) return;
 
@@ -143,30 +143,50 @@ export default function VipMonitorPage() {
 
     if (numbersArray.length === 0) return;
 
-    // Copy to clipboard as backup
+    const commaSeparated = numbersArray.join(", ");
+
+    // 1. Copy to clipboard first as immediate fallback
     try {
-      await navigator.clipboard.writeText(numbersArray.join("\n"));
+      await navigator.clipboard.writeText(commaSeparated);
       setSmsTriggered(true);
       setTimeout(() => setSmsTriggered(false), 2500);
     } catch {
-      // ignore clipboard error if browser blocks it
+      const textArea = document.createElement("textarea");
+      textArea.value = commaSeparated;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setSmsTriggered(true);
+      setTimeout(() => setSmsTriggered(false), 2500);
     }
 
-    // Detect iOS vs Android
+    // 2. Detect User Agent
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
     const isIOS =
-      typeof navigator !== "undefined" &&
-      (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+      /iPad|iPhone|iPod/.test(ua) ||
+      (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
 
-    // Formulate native SMS URI
+    // 3. Build OS-specific URI
     let smsUri = "";
     if (isIOS) {
       smsUri = `sms:/open?addresses=${encodeURIComponent(numbersArray.join(","))}`;
+    } else if (isAndroid) {
+      // Android smsto: scheme targeting native SMS app multi-recipient composer
+      smsUri = `smsto:${numbersArray.join(",")}`;
     } else {
-      smsUri = `sms:${encodeURIComponent(numbersArray.join(";"))}`;
+      smsUri = `sms:${numbersArray[0]}`;
     }
 
-    window.location.href = smsUri;
+    // 4. Trigger SMS App
+    const link = document.createElement("a");
+    link.href = smsUri;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // CSV Export
@@ -262,7 +282,7 @@ export default function VipMonitorPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Native SMS Broadcast Button */}
+            {/* Native SMS Broadcast Button (Mobile Icon-Only, Desktop Full Label) */}
             <button
               onClick={handleOpenSMS}
               disabled={filteredAttendees.length === 0}
@@ -296,7 +316,7 @@ export default function VipMonitorPage() {
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </button>
 
-            {/* Export CSV Action */}
+            {/* Export CSV Action (Mobile Icon-Only, Desktop Full Label) */}
             <button
               onClick={handleExportCSV}
               className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-[#FF6B00] hover:bg-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
